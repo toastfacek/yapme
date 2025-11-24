@@ -88,13 +88,17 @@ npm run start            # Run production build
 
 ## MVP Features (Sunday Launch)
 
+### ✅ Working Now
 - ✅ Google OAuth login
 - ✅ Username selection
 - ✅ Add friends by username
 - ✅ Friend list with status (Available/Offline)
+- ✅ Real-time presence updates
 - ✅ Select friend (dial metaphor)
-- ✅ Push-to-talk (hold spacebar)
-- ✅ Live audio streaming
+- ✅ Push-to-talk button (UI complete)
+
+### 🔄 In Progress
+- 🔄 Live audio streaming (WebRTC implementation next)
 
 ## Phase 2 (Post-Launch)
 
