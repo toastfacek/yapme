@@ -8,7 +8,7 @@ import { PTTButton } from './components/PTT/PTTButton'
 import './App.css'
 
 function App() {
-  const { user, session, loading: authLoading, signOut } = useAuth()
+  const { user, session, loading: authLoading, signOut, refreshUser } = useAuth()
   const { friends, loading: friendsLoading } = useFriends(user?.id || null)
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null)
 
@@ -43,7 +43,7 @@ function App() {
     return (
       <UsernameSetup
         userId={session.user.id}
-        onComplete={() => window.location.reload()}
+        onComplete={() => refreshUser()}
       />
     )
   }
