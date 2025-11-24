@@ -6,6 +6,29 @@
 
 ---
 
+## 📊 Current Status
+
+**✅ Phases 0-4 Complete** (App structure, auth, friends, PTT UI)
+**🔄 Phase 5 In Progress** (Infrastructure setup - user action required)
+**⏳ Phases 6-9 Remaining** (Testing, WebRTC, polish, deployment)
+
+### What's Working
+- Complete React + Electron desktop app structure
+- Beautiful retro UI with cozy design system
+- Authentication flow (Google OAuth + username)
+- Friend management (add, accept, list)
+- PTT button with keyboard/mouse support
+- Real-time status updates via Supabase
+- Basic Socket.io server infrastructure
+
+### Next Steps
+1. **You:** Set up Supabase & Railway (follow [SETUP.md](SETUP.md))
+2. **Test:** Run app locally and verify auth + friends flow
+3. **Build:** Add WebRTC audio streaming
+4. **Ship:** Deploy and launch!
+
+---
+
 ## 🎯 Refined MVP Scope
 
 ### ✅ MUST HAVE (Core Loop)
@@ -315,115 +338,111 @@ GET    /api/friends             # Get friend list with status
 
 ## 🚀 Implementation Phases
 
-### Phase 0: Setup (1-2 hours)
+### Phase 0: Setup ✅ COMPLETE
 - [x] Create plan.md
-- [ ] Initialize git repo
-- [ ] Set up monorepo structure
-- [ ] Create package.json files
-- [ ] Install dependencies
-- [ ] Configure TypeScript
-- [ ] Set up environment variables
-- [ ] Create .gitignore
+- [x] Initialize git repo
+- [x] Set up monorepo structure
+- [x] Create package.json files
+- [x] Install dependencies
+- [x] Configure TypeScript
+- [x] Set up environment variables
+- [x] Create .gitignore
+- [x] Create SETUP.md guide
+- [x] Push to GitHub
 
-### Phase 1: Infrastructure (2-3 hours)
+### Phase 1: App Structure ✅ COMPLETE
+- [x] **Desktop Scaffold**
+  - [x] Electron main process with window config
+  - [x] React + Vite integration
+  - [x] TypeScript types and interfaces
+  - [x] Supabase client setup
+- [x] **Design System**
+  - [x] CSS variables (warm retro palette)
+  - [x] Global styles and animations
+  - [x] Cozy aesthetic implementation
+- [x] **Server Scaffold**
+  - [x] Express + Socket.io setup
+  - [x] Basic signaling infrastructure
+  - [x] Health check endpoint
+
+### Phase 2: Authentication ✅ COMPLETE
+- [x] Supabase client integration
+- [x] Google OAuth login screen
+- [x] Username selection screen
+- [x] useAuth hook with session management
+- [x] Session persistence
+- [x] Logout functionality
+
+### Phase 3: Friend Management ✅ COMPLETE
+- [x] Add friend by username modal
+- [x] Send friend request (Supabase)
+- [x] Accept/decline UI
+- [x] Friend list component with styling
+- [x] useFriends hook
+- [x] Real-time friend list updates (Supabase Realtime)
+- [x] Empty states
+
+### Phase 4: PTT UI ✅ COMPLETE
+- [x] Friend selection ("dial" UI)
+- [x] PTT button component with animations
+- [x] Spacebar keydown/keyup handlers
+- [x] Mouse click PTT support
+- [x] Visual feedback (pressed state, ripple effect)
+- [x] Enable/disable logic based on friend status
+- [x] Tactile retro button design
+
+### Phase 5: Infrastructure Setup 🔄 IN PROGRESS
+**User Action Required - See SETUP.md**
 - [ ] **Supabase Setup**
-  - Create project
-  - Set up Google OAuth
-  - Create database schema
-  - Configure RLS policies
-  - Test auth flow
+  - [ ] Create project
+  - [ ] Set up Google OAuth
+  - [ ] Create database schema (SQL provided)
+  - [ ] Configure RLS policies (SQL provided)
+  - [ ] Copy credentials to desktop/.env
 - [ ] **Railway Setup**
-  - Create project
-  - Configure environment variables
-  - Set up deployment from GitHub
-  - Test health endpoint
-- [ ] **Desktop Scaffold**
-  - Basic Electron window
-  - React + Vite integration
-  - Hot reload working
-  - Basic routing (login/main screens)
+  - [ ] Create project from GitHub
+  - [ ] Configure environment variables
+  - [ ] Deploy server
+  - [ ] Copy URL to desktop/.env
 
-### Phase 2: Authentication (2-3 hours)
-- [ ] Supabase client integration
-- [ ] Google OAuth login flow
-- [ ] Username selection screen
-- [ ] Store user in database
-- [ ] Session persistence
-- [ ] Logout functionality
+### Phase 6: Local Testing (Next Step)
+- [ ] Test Google OAuth login
+- [ ] Test username selection
+- [ ] Test friend add/accept flow
+- [ ] Test real-time status updates
+- [ ] Test PTT button states
+- [ ] Fix any UI/logic bugs
 
-### Phase 3: Friend Management (3-4 hours)
-- [ ] Add friend by username UI
-- [ ] Send friend request (API + DB)
-- [ ] Friend request notifications
-- [ ] Accept/decline UI
-- [ ] Friend list component
-- [ ] Real-time friend list updates (Supabase Realtime)
-
-### Phase 4: Presence System (2-3 hours)
-- [ ] Socket.io client/server setup
-- [ ] Connect to server on app launch
-- [ ] Update status on Supabase
-- [ ] Subscribe to friend status changes
-- [ ] Show status indicators in buddy list
-- [ ] Handle disconnect/reconnect
-
-### Phase 5: WebRTC Setup (4-5 hours)
+### Phase 7: WebRTC Integration (Remaining)
 - [ ] Mediasoup server setup
-  - Create worker
-  - Create router
-  - Configure codecs (Opus audio only)
+  - [ ] Create worker
+  - [ ] Create router
+  - [ ] Configure codecs (Opus audio only)
 - [ ] WebRTC signaling flow
-  - Call initiation
-  - Offer/answer exchange
-  - ICE candidate exchange
+  - [ ] Call initiation on PTT press
+  - [ ] Offer/answer exchange
+  - [ ] ICE candidate exchange
 - [ ] Audio capture (getUserMedia)
+- [ ] Audio streaming
 - [ ] Audio playback
 - [ ] Test local echo
 
-### Phase 6: PTT Core Feature (4-5 hours)
-- [ ] Friend selection ("dial" UI)
-- [ ] PTT button component
-- [ ] Spacebar keydown/keyup handlers
-- [ ] Initiate call on PTT press
-- [ ] Audio streaming to selected friend
-- [ ] Receive and play friend's audio
-- [ ] Visual feedback (talking indicator)
-- [ ] Audio level visualization
-- [ ] Error handling (friend offline, busy, etc.)
-
-### Phase 7: Polish & UX (3-4 hours)
-- [ ] Retro/cozy styling
-  - CSS variables for design tokens
-  - Warm color palette
-  - Rounded UI elements
-  - Glowing status dots
-  - Tactile PTT button
+### Phase 8: Polish & Sound (Remaining)
 - [ ] Sound effects
-  - PTT press/release clicks
-  - Friend online notification
-  - Error sounds
-- [ ] Loading states
-- [ ] Error messages
-- [ ] Empty states (no friends)
-- [ ] Smooth animations
-
-### Phase 8: Testing & Debugging (3-4 hours)
-- [ ] Manual testing checklist
-- [ ] Test with 2+ real users
-- [ ] Fix critical bugs
-- [ ] Test on different networks
-- [ ] Test reconnection scenarios
+  - [ ] PTT press/release clicks
+  - [ ] Friend online notification
+  - [ ] Error sounds
+- [ ] Loading states refinement
+- [ ] Error handling improvements
 - [ ] Performance optimization
-- [ ] Memory leak checks
 
-### Phase 9: Deployment (2-3 hours)
+### Phase 9: Deployment (Remaining)
+- [ ] Test with 2+ real users over network
+- [ ] Fix critical bugs
 - [ ] Build macOS .dmg
-- [ ] Code signing (if time)
 - [ ] Test installer
-- [ ] Deploy server to Railway
-- [ ] Configure custom domain (yapme.xyz)
-- [ ] SSL certificate setup
-- [ ] Create download landing page
+- [ ] Deploy server to Railway production
+- [ ] Configure custom domain (api.yapme.xyz)
 - [ ] Write launch LinkedIn post
 
 ---
