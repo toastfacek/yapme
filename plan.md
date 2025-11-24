@@ -8,24 +8,33 @@
 
 ## 📊 Current Status
 
-**✅ Phases 0-4 Complete** (App structure, auth, friends, PTT UI)
-**🔄 Phase 5 In Progress** (Infrastructure setup - user action required)
-**⏳ Phases 6-9 Remaining** (Testing, WebRTC, polish, deployment)
+**✅ Phases 0-6 Complete** (App structure, auth, friends, PTT UI, infrastructure, local testing)
+**🔄 Phase 7 In Progress** (WebRTC audio streaming - next major feature)
+**⏳ Phases 8-9 Remaining** (Polish & sound, deployment)
 
-### What's Working
-- Complete React + Electron desktop app structure
+### ✅ What's Working (Tested & Verified)
+- Complete React + Electron desktop app running locally
 - Beautiful retro UI with cozy design system
-- Authentication flow (Google OAuth + username)
-- Friend management (add, accept, list)
+- Google OAuth authentication flow
+- Username selection and user creation
+- Friend management (add, accept/decline, list)
 - PTT button with keyboard/mouse support
-- Real-time status updates via Supabase
-- Basic Socket.io server infrastructure
+- Real-time status updates via Supabase Realtime
+- Railway server deployed and running
+- Supabase database with RLS policies
+- Full end-to-end app flow working!
 
-### Next Steps
-1. **You:** Set up Supabase & Railway (follow [SETUP.md](SETUP.md))
-2. **Test:** Run app locally and verify auth + friends flow
-3. **Build:** Add WebRTC audio streaming
-4. **Ship:** Deploy and launch!
+### 🎯 Next Major Feature
+**WebRTC Audio Streaming** - The core PTT functionality
+- Implement Mediasoup on server
+- Add audio capture on PTT press
+- Stream audio between users
+- Add audio playback
+
+### After WebRTC
+1. **Polish:** Sound effects, animations, error handling
+2. **Test:** Multi-user testing over network
+3. **Ship:** Build .dmg and launch!
 
 ---
 
@@ -391,27 +400,29 @@ GET    /api/friends             # Get friend list with status
 - [x] Enable/disable logic based on friend status
 - [x] Tactile retro button design
 
-### Phase 5: Infrastructure Setup 🔄 IN PROGRESS
-**User Action Required - See SETUP.md**
-- [ ] **Supabase Setup**
-  - [ ] Create project
-  - [ ] Set up Google OAuth
-  - [ ] Create database schema (SQL provided)
-  - [ ] Configure RLS policies (SQL provided)
-  - [ ] Copy credentials to desktop/.env
-- [ ] **Railway Setup**
-  - [ ] Create project from GitHub
-  - [ ] Configure environment variables
-  - [ ] Deploy server
-  - [ ] Copy URL to desktop/.env
+### Phase 5: Infrastructure Setup ✅ COMPLETE
+- [x] **Supabase Setup**
+  - [x] Create project
+  - [x] Set up Google OAuth
+  - [x] Create database schema
+  - [x] Configure RLS policies
+  - [x] Copy credentials to desktop/.env
+- [x] **Railway Setup**
+  - [x] Create project from GitHub
+  - [x] Configure environment variables
+  - [x] Deploy server successfully
+  - [x] Server health check responding
+  - [x] Copy URL to desktop/.env
 
-### Phase 6: Local Testing (Next Step)
-- [ ] Test Google OAuth login
-- [ ] Test username selection
-- [ ] Test friend add/accept flow
-- [ ] Test real-time status updates
-- [ ] Test PTT button states
-- [ ] Fix any UI/logic bugs
+### Phase 6: Local Testing ✅ COMPLETE
+- [x] Test Google OAuth login - WORKING
+- [x] Test username selection - WORKING
+- [x] Test friend add/accept flow - WORKING
+- [x] Test real-time status updates - WORKING
+- [x] Test PTT button states - WORKING
+- [x] Fixed Electron compilation issues
+- [x] Fixed auth state reload after username setup
+- [x] App running successfully end-to-end!
 
 ### Phase 7: WebRTC Integration (Remaining)
 - [ ] Mediasoup server setup
