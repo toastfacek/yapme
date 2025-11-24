@@ -71,9 +71,16 @@ export const useAuth = () => {
     }
   }
 
+  const refreshUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.user) {
+      await loadUser(session.user.id)
+    }
+  }
+
   return {
     ...authState,
     signOut,
-    refreshUser: () => authState.user && loadUser(authState.user.id),
+    refreshUser,
   }
 }
