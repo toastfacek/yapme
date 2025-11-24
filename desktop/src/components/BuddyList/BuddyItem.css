@@ -1,0 +1,122 @@
+.buddy-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 2px solid transparent;
+}
+
+.buddy-item:hover {
+  background: var(--color-surface-hover);
+  transform: translateX(2px);
+}
+
+.buddy-item.selected {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary-dark);
+  box-shadow: var(--shadow-md);
+}
+
+.buddy-item.pending {
+  cursor: default;
+  opacity: 0.8;
+}
+
+.buddy-item.pending:hover {
+  transform: none;
+}
+
+.status-indicator {
+  position: relative;
+  width: var(--status-dot-size);
+  height: var(--status-dot-size);
+}
+
+.status-dot {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: all var(--transition-base);
+}
+
+.status-dot.available {
+  background: var(--color-available);
+  box-shadow: 0 0 8px var(--color-available-glow);
+  animation: glow 2s infinite;
+}
+
+.status-dot.offline {
+  background: var(--color-offline);
+}
+
+.buddy-item.selected .status-dot {
+  background: white;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+.buddy-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.buddy-username {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.buddy-status-text {
+  font-size: var(--font-size-xs);
+  opacity: 0.7;
+}
+
+.buddy-item.selected .buddy-status-text {
+  opacity: 0.9;
+}
+
+.pending-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.accept-button,
+.decline-button {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.accept-button {
+  background: var(--color-available);
+  color: white;
+}
+
+.accept-button:hover {
+  background: #3db9b0;
+  transform: scale(1.05);
+}
+
+.decline-button {
+  background: var(--color-accent);
+  color: white;
+}
+
+.decline-button:hover {
+  background: #a85559;
+  transform: scale(1.05);
+}

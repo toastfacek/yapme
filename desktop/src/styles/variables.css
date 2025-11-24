@@ -1,0 +1,95 @@
+/* YapList Design System - Cozy Retro Walkie-Talkie */
+
+:root {
+  /* Warm Sunset Color Palette */
+  --color-primary: #FF6B35;
+  --color-primary-light: #FF8C5F;
+  --color-primary-dark: #E55520;
+
+  --color-secondary: #F7931E;
+  --color-accent: #C1666B;
+
+  --color-available: #4ECDC4;
+  --color-available-glow: rgba(78, 205, 196, 0.3);
+  --color-offline: #95A3A4;
+  --color-offline-dim: rgba(149, 163, 164, 0.5);
+
+  --color-background: #FFF8F0;
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #FFF4E6;
+  --color-border: #E8DED0;
+
+  --color-text-primary: #2C1810;
+  --color-text-secondary: #6B5A4C;
+  --color-text-tertiary: #95A3A4;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 4px rgba(44, 24, 16, 0.08);
+  --shadow-md: 0 4px 12px rgba(44, 24, 16, 0.12);
+  --shadow-lg: 0 8px 24px rgba(44, 24, 16, 0.16);
+  --shadow-glow: 0 0 16px var(--color-available-glow);
+
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  --font-mono: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-base: 15px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Status Dot Size */
+  --status-dot-size: 10px;
+
+  /* PTT Button */
+  --ptt-button-size: 80px;
+  --ptt-button-active-scale: 0.92;
+}
+
+/* Texture overlay for retro feel */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(44, 24, 16, 0.01) 2px,
+      rgba(44, 24, 16, 0.01) 4px
+    );
+  pointer-events: none;
+  z-index: 9999;
+}
