@@ -24,13 +24,19 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
   useEffect(() => {
     if (!userId) return
 
+    console.log('🔌 Connecting to WebRTC server:', SERVER_URL)
+
     const newSocket = io(SERVER_URL, {
       transports: ['websocket'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      timeout: 10000,
     })
 
     newSocket.on('connect', () => {
-      console.log('✅ Socket connected')
+      console.log('✅ Socket connected to', SERVER_URL)
       setIsConnected(true)
+      setError(null)
 
       // Authenticate
       newSocket.emit('authenticate', { userId })
@@ -38,6 +44,12 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
 
     newSocket.on('disconnect', () => {
       console.log('❌ Socket disconnected')
+      setIsConnected(false)
+    })
+
+    newSocket.on('connect_error', (err: any) => {
+      console.error('Socket connection error:', err.message)
+      setError('Cannot connect to server. Make sure server is running.')
       setIsConnected(false)
     })
 
