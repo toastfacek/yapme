@@ -1,9 +1,9 @@
 {
   "name": "yaplist-server",
   "version": "0.1.0",
-  "description": "YapList backend server with WebRTC and signaling",
+  "description": "YapMe backend server with WebRTC and signaling",
   "main": "dist/index.js",
-  "author": "YapList",
+  "author": "YapMe",
   "license": "MIT",
   "scripts": {
     "dev": "tsx watch src/index.ts",

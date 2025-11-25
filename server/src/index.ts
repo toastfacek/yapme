@@ -104,7 +104,7 @@ io.on('connection', (socket) => {
 
 // Start server
 httpServer.listen(PORT, () => {
-  console.log(`🚀 YapList server running on port ${PORT}`)
+  console.log(`🚀 YapMe server running on port ${PORT}`)
   console.log(`📡 WebSocket server ready`)
   console.log(`🏥 Health check: http://localhost:${PORT}/health`)
 })

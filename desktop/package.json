@@ -1,9 +1,9 @@
 {
   "name": "yaplist-desktop",
   "version": "0.1.0",
-  "description": "YapList - Voice-only buddy list for remote friends",
+  "description": "YapMe - Voice-only buddy list for remote friends",
   "main": "dist/electron/main.js",
-  "author": "YapList",
+  "author": "YapMe",
   "license": "MIT",
   "scripts": {
     "dev": "vite",
@@ -35,7 +35,7 @@
   },
   "build": {
     "appId": "com.yaplist.app",
-    "productName": "YapList",
+    "productName": "YapMe",
     "directories": {
       "output": "release"
     },

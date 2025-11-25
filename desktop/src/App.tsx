@@ -28,7 +28,7 @@ function App() {
     return (
       <div className="app-loading">
         <div className="loading-spinner">🎙️</div>
-        <p>Loading YapList...</p>
+        <p>Loading YapMe...</p>
       </div>
     )
   }

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-YapList is a desktop application that brings back the simplicity of AOL Instant Messenger's buddy list with push-to-talk voice communication. Users see who's available and can instantly talk to them by clicking their name and holding spacebar.
+YapMe is a desktop application that brings back the simplicity of AOL Instant Messenger's buddy list with push-to-talk voice communication. Users see who's available and can instantly talk to them by clicking their name and holding spacebar.
 
 **Core Principle:** Maximum real-time, minimum complexity. Voice-only communication with presence awareness.
 

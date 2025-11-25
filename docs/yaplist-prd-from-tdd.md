@@ -1,9 +1,9 @@
-# PRD: YapList MVP
+# PRD: YapMe MVP
 *AIM-style buddy list for voice-only communication*
 
 ## Executive Summary
 
-YapList is a desktop application that brings back the simplicity of AOL Instant Messenger's buddy list with push-to-talk voice communication. Users see who's available and can instantly talk to them by clicking their name and holding spacebar. No channels, no text, just presence and voice.
+YapMe is a desktop application that brings back the simplicity of AOL Instant Messenger's buddy list with push-to-talk voice communication. Users see who's available and can instantly talk to them by clicking their name and holding spacebar. No channels, no text, just presence and voice.
 
 **MVP Goal:** Launch in 1 week with <100 beta users to validate demand.
 
@@ -189,7 +189,7 @@ A dead-simple desktop app with three components:
 | Empty buddy list | "Find friends" onboarding |
 | No one available to talk | Voice messages bridge async |
 | Feature requests | "Thanks! Focusing on voice for now" |
-| "Why not Discord?" | "YapList is for your real friends" |
+| "Why not Discord?" | "YapMe is for your real friends" |
 
 ## Future Roadmap (Post-Validation)
 
@@ -219,14 +219,14 @@ Teams ● |      ● Zoom
        |
 Voxer ● |      
        |
-       |    ● YapList
+       |    ● YapMe
        |
 Text ● |      
        +————————————→
       Async    Real-time
 ```
 
-**YapList:** Maximum real-time, minimum complexity.
+**YapMe:** Maximum real-time, minimum complexity.
 
 ## Final Notes
 

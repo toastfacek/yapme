@@ -1,4 +1,4 @@
-# Technical Design Doc: YapList MVP
+# Technical Design Doc: YapMe MVP
 
 *Speed-focused implementation for <100 users on a shoestring budget*
 
@@ -212,7 +212,7 @@ async function recordVoiceMessage(friendId) {
 // main.js
 const { app, BrowserWindow, Tray, globalShortcut } = require('electron')
 
-class YapListApp {
+class YapMeApp {
   constructor() {
     this.tray = null
     this.window = null
@@ -222,7 +222,7 @@ class YapListApp {
   init() {
     // System tray with status
     this.tray = new Tray('icon.png')
-    this.tray.setToolTip('YapList - Available')
+    this.tray.setToolTip('YapMe - Available')
     
     // Global PTT hotkey (even when minimized)
     globalShortcut.register('CommandOrControl+Shift+Space', () => {

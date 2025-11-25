@@ -1,4 +1,4 @@
-# YapList 🎙️
+# YapMe 🎙️
 
 > Voice-only buddy list for remote friends. Like AOL Messenger meets walkie-talkies.
 

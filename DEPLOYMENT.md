@@ -1,4 +1,4 @@
-# YapList Deployment Guide
+# YapMe Deployment Guide
 
 ## Current Status ✅
 
@@ -10,11 +10,11 @@
 
 You have two macOS installers in `desktop/release/`:
 
-1. **YapList-0.1.0.dmg** (97 MB)
+1. **YapMe-0.1.0.dmg** (97 MB)
    - For Intel Macs (x64 architecture)
    - Compatible with macOS 10.12+
 
-2. **YapList-0.1.0-arm64.dmg** (92 MB)
+2. **YapMe-0.1.0-arm64.dmg** (92 MB)
    - For Apple Silicon Macs (M1/M2/M3)
    - Compatible with macOS 11.0+
 
@@ -27,7 +27,7 @@ This is the easiest way to distribute your app to early testers.
 ```bash
 # 1. Create a GitHub release
 gh release create v0.1.0 \
-  --title "YapList v0.1.0 - MVP Launch" \
+  --title "YapMe v0.1.0 - MVP Launch" \
   --notes "Voice-only buddy list for remote friends. Like AOL Messenger meets walkie-talkies.
 
 **Features:**
@@ -42,17 +42,17 @@ gh release create v0.1.0 \
 **Installation:**
 - Download the appropriate .dmg for your Mac
 - Open the .dmg file
-- Drag YapList to Applications
+- Drag YapMe to Applications
 - Right-click and select 'Open' on first launch (bypass Gatekeeper)
 
 **Note:** App is not code-signed yet, so macOS will show a security warning. This is normal for MVP." \
-  release/YapList-0.1.0.dmg \
-  release/YapList-0.1.0-arm64.dmg
+  release/YapMe-0.1.0.dmg \
+  release/YapMe-0.1.0-arm64.dmg
 ```
 
 After running this, you'll get URLs like:
-- Intel: `https://github.com/toastfacek/yapme/releases/download/v0.1.0/YapList-0.1.0.dmg`
-- ARM: `https://github.com/toastfacek/yapme/releases/download/v0.1.0/YapList-0.1.0-arm64.dmg`
+- Intel: `https://github.com/toastfacek/yapme/releases/download/v0.1.0/YapMe-0.1.0.dmg`
+- ARM: `https://github.com/toastfacek/yapme/releases/download/v0.1.0/YapMe-0.1.0-arm64.dmg`
 
 ### Option 2: Cloudflare R2 / AWS S3
 
@@ -72,19 +72,19 @@ Create a basic HTML page at `yapme.xyz` with download links.
 Share these instructions with testers:
 
 ```
-How to Install YapList on Mac:
+How to Install YapMe on Mac:
 
 1. Download the appropriate version:
-   - Apple Silicon (M1/M2/M3): YapList-0.1.0-arm64.dmg
-   - Intel Mac: YapList-0.1.0.dmg
+   - Apple Silicon (M1/M2/M3): YapMe-0.1.0-arm64.dmg
+   - Intel Mac: YapMe-0.1.0.dmg
 
 2. Open the .dmg file
 
-3. Drag YapList to your Applications folder
+3. Drag YapMe to your Applications folder
 
 4. IMPORTANT - First launch:
-   - Find YapList in Applications
-   - Right-click (or Control+click) on YapList
+   - Find YapMe in Applications
+   - Right-click (or Control+click) on YapMe
    - Select "Open"
    - Click "Open" in the security dialog
    - This is only needed once!
@@ -99,7 +99,7 @@ This is normal for early versions. Full signing coming soon!
 
 Since the app isn't code-signed with an Apple Developer certificate ($99/year), users will see:
 
-> "YapList cannot be opened because it is from an unidentified developer."
+> "YapMe cannot be opened because it is from an unidentified developer."
 
 **How users bypass this:**
 1. Right-click the app → Open
@@ -116,13 +116,13 @@ Since the app isn't code-signed with an Apple Developer certificate ($99/year), 
 ### For LinkedIn Post
 
 ```markdown
-🎙️ Introducing YapList - Voice-only communication for remote friends
+🎙️ Introducing YapMe - Voice-only communication for remote friends
 
 Built in 3 days. No text chat. Just presence and push-to-talk.
 
 Download for macOS:
-📦 Apple Silicon: [Download](https://github.com/toastfacek/yapme/releases/download/v0.1.0/YapList-0.1.0-arm64.dmg)
-📦 Intel Mac: [Download](https://github.com/toastfacek/yapme/releases/download/v0.1.0/YapList-0.1.0.dmg)
+📦 Apple Silicon: [Download](https://github.com/toastfacek/yapme/releases/download/v0.1.0/YapMe-0.1.0-arm64.dmg)
+📦 Intel Mac: [Download](https://github.com/toastfacek/yapme/releases/download/v0.1.0/YapMe-0.1.0.dmg)
 
 Looking for 5-10 early testers! 🚀
 ```
@@ -140,7 +140,7 @@ Before sharing widely, test yourself:
 
 1. **Test on your Mac:**
    ```bash
-   open release/YapList-0.1.0-arm64.dmg  # Or .dmg for Intel
+   open release/YapMe-0.1.0-arm64.dmg  # Or .dmg for Intel
    ```
    - Drag to Applications
    - Open the app
@@ -182,10 +182,10 @@ npm run build:electron
 
 # 3. Create new GitHub release
 gh release create v0.1.1 \
-  --title "YapList v0.1.1 - Bug Fixes" \
+  --title "YapMe v0.1.1 - Bug Fixes" \
   --notes "Changelog here" \
-  release/YapList-0.1.1.dmg \
-  release/YapList-0.1.1-arm64.dmg
+  release/YapMe-0.1.1.dmg \
+  release/YapMe-0.1.1-arm64.dmg
 ```
 
 ## Production Checklist

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# YapList Release Script
+# YapMe Release Script
 # Creates a GitHub release with the built .dmg files
 
 set -e
@@ -8,7 +8,7 @@ set -e
 VERSION="v0.1.0"
 RELEASE_DIR="desktop/release"
 
-echo "🚀 Creating YapList $VERSION release..."
+echo "🚀 Creating YapMe $VERSION release..."
 
 # Check if gh CLI is installed
 if ! command -v gh &> /dev/null; then
@@ -18,18 +18,18 @@ if ! command -v gh &> /dev/null; then
 fi
 
 # Check if .dmg files exist
-if [ ! -f "$RELEASE_DIR/YapList-0.1.0.dmg" ]; then
+if [ ! -f "$RELEASE_DIR/YapMe-0.1.0.dmg" ]; then
     echo "❌ Intel .dmg not found. Run: cd desktop && npm run build:electron"
     exit 1
 fi
 
-if [ ! -f "$RELEASE_DIR/YapList-0.1.0-arm64.dmg" ]; then
+if [ ! -f "$RELEASE_DIR/YapMe-0.1.0-arm64.dmg" ]; then
     echo "❌ ARM .dmg not found. Run: cd desktop && npm run build:electron"
     exit 1
 fi
 
 # Create release notes
-NOTES="🎙️ **YapList v0.1.0 - MVP Launch**
+NOTES="🎙️ **YapMe v0.1.0 - MVP Launch**
 
 Voice-only buddy list for remote friends. Like AOL Messenger meets walkie-talkies.
 
@@ -54,16 +54,16 @@ Voice-only buddy list for remote friends. Like AOL Messenger meets walkie-talkie
 ## 📦 Installation
 
 1. **Download the appropriate version for your Mac:**
-   - **Apple Silicon (M1/M2/M3):** YapList-0.1.0-arm64.dmg
-   - **Intel Mac:** YapList-0.1.0.dmg
+   - **Apple Silicon (M1/M2/M3):** YapMe-0.1.0-arm64.dmg
+   - **Intel Mac:** YapMe-0.1.0.dmg
 
 2. **Open the .dmg file**
 
-3. **Drag YapList to your Applications folder**
+3. **Drag YapMe to your Applications folder**
 
 4. **First launch (IMPORTANT):**
-   - Find YapList in Applications
-   - **Right-click** (or Control+click) on YapList
+   - Find YapMe in Applications
+   - **Right-click** (or Control+click) on YapMe
    - Select \"Open\"
    - Click \"Open\" in the security dialog
    - This is only needed once!
@@ -97,15 +97,15 @@ echo "Creating GitHub release..."
 
 # Create the release
 gh release create "$VERSION" \
-  --title "YapList $VERSION - MVP Launch" \
+  --title "YapMe $VERSION - MVP Launch" \
   --notes "$NOTES" \
-  "$RELEASE_DIR/YapList-0.1.0.dmg" \
-  "$RELEASE_DIR/YapList-0.1.0-arm64.dmg"
+  "$RELEASE_DIR/YapMe-0.1.0.dmg" \
+  "$RELEASE_DIR/YapMe-0.1.0-arm64.dmg"
 
 echo "✅ Release created successfully!"
 echo ""
 echo "📦 Download URLs:"
-echo "Intel Mac: https://github.com/toastfacek/yapme/releases/download/$VERSION/YapList-0.1.0.dmg"
-echo "Apple Silicon: https://github.com/toastfacek/yapme/releases/download/$VERSION/YapList-0.1.0-arm64.dmg"
+echo "Intel Mac: https://github.com/toastfacek/yapme/releases/download/$VERSION/YapMe-0.1.0.dmg"
+echo "Apple Silicon: https://github.com/toastfacek/yapme/releases/download/$VERSION/YapMe-0.1.0-arm64.dmg"
 echo ""
 echo "🎉 Ready to share!"

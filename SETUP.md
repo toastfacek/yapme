@@ -1,4 +1,4 @@
-# YapList Setup Guide
+# YapMe Setup Guide
 
 ## 1. Supabase Setup (5-10 minutes)
 
@@ -301,4 +301,4 @@ cd server && npm run dev
 cd desktop && npm run dev:electron
 ```
 
-You should see the YapList login screen! 🎉
+You should see the YapMe login screen! 🎉

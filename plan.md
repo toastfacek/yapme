@@ -1,4 +1,4 @@
-# YapList MVP Implementation Plan
+# YapMe MVP Implementation Plan
 
 **Target Launch:** Sunday (LinkedIn post)
 **Timeline:** 3 days aggressive development
@@ -574,7 +574,7 @@ Given the tight timeline, we'll prioritize manual testing with a structured chec
 ### LinkedIn Post Content
 Suggested post structure:
 ```
-🎙️ Built YapList in 3 days - voice-only communication that feels like walkie-talkies for remote friends
+🎙️ Built YapMe in 3 days - voice-only communication that feels like walkie-talkies for remote friends
 
 The problem: Discord is too complex. Zoom feels like a meeting. Phone calls lack presence context.
 

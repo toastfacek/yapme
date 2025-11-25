@@ -32,7 +32,7 @@ export const LoginScreen: React.FC = () => {
       <div className="login-content">
         <div className="login-logo">
           <div className="logo-icon">🎙️</div>
-          <h1 className="logo-text">YapList</h1>
+          <h1 className="logo-text">YapMe</h1>
           <p className="logo-tagline">Voice-only buddy list</p>
         </div>
 
