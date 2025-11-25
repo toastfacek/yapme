@@ -11,6 +11,7 @@ const mediaCodecs: MediasoupTypes.RtpCodecCapability[] = [
     mimeType: 'audio/opus',
     clockRate: 48000,
     channels: 2,
+    preferredPayloadType: 111,
   },
 ]
 
