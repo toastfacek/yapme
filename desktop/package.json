@@ -54,8 +54,7 @@
             "arm64"
           ]
         }
-      ],
-      "icon": "src/assets/icon.png"
+      ]
     }
   }
 }
