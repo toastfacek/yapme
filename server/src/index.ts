@@ -3,6 +3,17 @@ import { createServer } from 'http'
 import { Server as SocketIOServer } from 'socket.io'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import { createWorker, createRouter, getRouter } from './mediasoup/worker'
+import {
+  createRoom,
+  addPeerToRoom,
+  removePeerFromRoom,
+  createWebRtcTransport,
+  connectTransport,
+  createProducer,
+  closeProducer,
+  getRoomPeers,
+} from './mediasoup/rooms'
 
 dotenv.config()
 
@@ -16,6 +27,18 @@ const io = new SocketIOServer(httpServer, {
 })
 
 const PORT = process.env.PORT || 3000
+
+// Initialize Mediasoup
+;(async () => {
+  try {
+    await createWorker()
+    await createRouter()
+    console.log('✅ Mediasoup initialized successfully')
+  } catch (error) {
+    console.error('❌ Failed to initialize Mediasoup:', error)
+    process.exit(1)
+  }
+})()
 
 // Middleware
 app.use(cors())
@@ -89,6 +112,158 @@ io.on('connection', (socket) => {
     console.log(`Call ended: ${userId} ended call with ${targetUserId}`)
     if (targetUserId) {
       io.to(`user:${targetUserId}`).emit('call_ended', { userId })
+
+      // Clean up WebRTC room
+      const roomId = [userId, targetUserId].sort().join('-')
+      removePeerFromRoom(roomId, userId)
+    }
+  })
+
+  // ===== WebRTC SIGNALING HANDLERS =====
+
+  // Get router RTP capabilities
+  socket.on('getRouterRtpCapabilities', (_, callback) => {
+    try {
+      const router = getRouter()
+      if (!router) {
+        callback({ error: 'Router not initialized' })
+        return
+      }
+      callback({ rtpCapabilities: router.rtpCapabilities })
+    } catch (error: any) {
+      console.error('getRouterRtpCapabilities error:', error)
+      callback({ error: error.message })
+    }
+  })
+
+  // Create WebRTC transport
+  socket.on('createWebRtcTransport', async ({ roomId, direction }, callback) => {
+    try {
+      const userId = socket.data.userId
+      if (!userId) {
+        callback({ error: 'Not authenticated' })
+        return
+      }
+
+      const transport = await createWebRtcTransport(roomId, userId, direction)
+
+      callback({
+        params: {
+          id: transport.id,
+          iceParameters: transport.iceParameters,
+          iceCandidates: transport.iceCandidates,
+          dtlsParameters: transport.dtlsParameters,
+        },
+      })
+    } catch (error: any) {
+      console.error('createWebRtcTransport error:', error)
+      callback({ error: error.message })
+    }
+  })
+
+  // Connect transport
+  socket.on('connectTransport', async ({ roomId, transportId, dtlsParameters }, callback) => {
+    try {
+      const userId = socket.data.userId
+      if (!userId) {
+        callback({ error: 'Not authenticated' })
+        return
+      }
+
+      await connectTransport(roomId, userId, transportId, dtlsParameters)
+      callback({ success: true })
+    } catch (error: any) {
+      console.error('connectTransport error:', error)
+      callback({ error: error.message })
+    }
+  })
+
+  // Produce audio
+  socket.on('produce', async ({ roomId, transportId, kind, rtpParameters }, callback) => {
+    try {
+      const userId = socket.data.userId
+      if (!userId) {
+        callback({ error: 'Not authenticated' })
+        return
+      }
+
+      const producer = await createProducer(roomId, userId, transportId, rtpParameters, kind)
+
+      callback({ id: producer.id })
+
+      // Notify other peer that producer is ready
+      const peers = getRoomPeers(roomId)
+      const otherUserId = peers.find((id) => id !== userId)
+      if (otherUserId) {
+        io.to(`user:${otherUserId}`).emit('newProducer', {
+          producerId: producer.id,
+          userId,
+        })
+      }
+    } catch (error: any) {
+      console.error('produce error:', error)
+      callback({ error: error.message })
+    }
+  })
+
+  // Close producer
+  socket.on('closeProducer', ({ roomId }) => {
+    try {
+      const userId = socket.data.userId
+      if (!userId) return
+
+      closeProducer(roomId, userId)
+
+      // Notify other peer
+      const peers = getRoomPeers(roomId)
+      const otherUserId = peers.find((id) => id !== userId)
+      if (otherUserId) {
+        io.to(`user:${otherUserId}`).emit('producerClosed', { userId })
+      }
+    } catch (error: any) {
+      console.error('closeProducer error:', error)
+    }
+  })
+
+  // Join room (for WebRTC)
+  socket.on('joinRoom', ({ roomId, targetUserId }) => {
+    const userId = socket.data.userId
+    if (!userId) return
+
+    try {
+      createRoom(roomId)
+      addPeerToRoom(roomId, userId, socket.id)
+
+      // Notify the other user
+      io.to(`user:${targetUserId}`).emit('peerJoined', {
+        userId,
+        roomId,
+      })
+
+      console.log(`👥 User ${userId} joined room ${roomId}`)
+    } catch (error: any) {
+      console.error('joinRoom error:', error)
+    }
+  })
+
+  // Leave room
+  socket.on('leaveRoom', ({ roomId }) => {
+    const userId = socket.data.userId
+    if (!userId) return
+
+    try {
+      removePeerFromRoom(roomId, userId)
+
+      // Notify other peer
+      const peers = getRoomPeers(roomId)
+      const otherUserId = peers.find((id) => id !== userId)
+      if (otherUserId) {
+        io.to(`user:${otherUserId}`).emit('peerLeft', { userId })
+      }
+
+      console.log(`👥 User ${userId} left room ${roomId}`)
+    } catch (error: any) {
+      console.error('leaveRoom error:', error)
     }
   })
 
@@ -98,6 +273,9 @@ io.on('connection', (socket) => {
     console.log('Client disconnected:', socket.id, userId)
     if (userId) {
       socket.broadcast.emit('presence_update', { userId, status: 'offline' })
+
+      // Clean up any rooms this user was in
+      // Note: In production, you'd want to track which rooms the user is in
     }
   })
 })

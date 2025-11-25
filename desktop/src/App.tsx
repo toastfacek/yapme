@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useFriends } from './hooks/useFriends'
+import { useWebRTC } from './hooks/useWebRTC'
 import { LoginScreen } from './components/Auth/LoginScreen'
 import { UsernameSetup } from './components/Auth/UsernameSetup'
 import { BuddyList } from './components/BuddyList/BuddyList'
@@ -12,15 +13,26 @@ function App() {
   const { friends, loading: friendsLoading } = useFriends(user?.id || null)
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null)
 
-  // PTT state (will be connected to WebRTC later)
+  // WebRTC for audio
+  const {
+    isConnected: isWebRTCConnected,
+    isTalking,
+    isListening,
+    error: webrtcError,
+    startTalking,
+    stopTalking,
+  } = useWebRTC({
+    userId: user?.id || null,
+    selectedFriendId,
+  })
+
+  // PTT handlers
   const handlePTTStart = () => {
-    console.log('🎤 Start talking to:', selectedFriendId)
-    // TODO: Start WebRTC audio stream
+    startTalking()
   }
 
   const handlePTTEnd = () => {
-    console.log('🔇 Stop talking')
-    // TODO: Stop WebRTC audio stream
+    stopTalking()
   }
 
   // Loading state
@@ -77,8 +89,23 @@ function App() {
           currentUserId={user?.id || ''}
         />
 
+        {/* Connection status */}
+        {webrtcError && (
+          <div className="webrtc-error">
+            <p>⚠️ {webrtcError}</p>
+          </div>
+        )}
+
+        {/* Listening indicator */}
+        {isListening && (
+          <div className="listening-indicator">
+            <div className="listening-pulse" />
+            <p>🔊 {selectedFriend?.username} is talking...</p>
+          </div>
+        )}
+
         <PTTButton
-          isEnabled={isPTTEnabled}
+          isEnabled={isPTTEnabled && isWebRTCConnected}
           selectedFriendName={selectedFriend?.username || null}
           onPTTStart={handlePTTStart}
           onPTTEnd={handlePTTEnd}
