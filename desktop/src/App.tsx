@@ -4,14 +4,15 @@ import { useFriends } from './hooks/useFriends'
 import { useWebRTC } from './hooks/useWebRTC'
 import { LoginScreen } from './components/Auth/LoginScreen'
 import { UsernameSetup } from './components/Auth/UsernameSetup'
-import { BuddyList } from './components/BuddyList/BuddyList'
-import { PTTButton } from './components/PTT/PTTButton'
-import './App.css'
+import { TitleBar } from './components/FriendWheel/TitleBar'
+import { FriendWheel } from './components/FriendWheel/FriendWheel'
 
 function App() {
   const { user, session, loading: authLoading, signOut, refreshUser } = useAuth()
   const { friends, loading: friendsLoading } = useFriends(user?.id || null)
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null)
+
+  console.log('🎯 App render - authLoading:', authLoading, 'user:', user?.username, 'session:', !!session)
 
   // WebRTC for audio
   const {
@@ -62,55 +63,36 @@ function App() {
 
   // Main app
   const selectedFriend = friends.find((f) => f.id === selectedFriendId)
-  const isPTTEnabled = !!selectedFriend && selectedFriend.status === 'available'
 
   return (
-    <div className="app">
-      <div className="app-header">
-        <div className="header-user">
-          <div className="user-status">
-            <div className="status-dot available" />
-          </div>
-          <div className="user-info">
-            <div className="user-username">{user?.username}</div>
-            <div className="user-status-text">Available</div>
-          </div>
-        </div>
-        <button className="header-logout" onClick={signOut} title="Sign out">
-          ↪
-        </button>
-      </div>
+    <div className="h-screen w-screen flex flex-col bg-bone overflow-hidden text-ink font-mono border-2 border-ink">
+      <TitleBar
+        currentUser={user!}
+        onSignOut={signOut}
+      />
 
-      <div className="app-content">
-        <BuddyList
+      <main className="flex-1 overflow-hidden relative mt-8">
+        <FriendWheel
           friends={friends}
+          currentUser={user!}
           selectedFriendId={selectedFriendId}
           onSelectFriend={setSelectedFriendId}
-          currentUserId={user?.id || ''}
+          onStartTalking={handlePTTStart}
+          onStopTalking={handlePTTEnd}
+          isTalking={isTalking}
+          isListening={isListening}
+          isWebRTCConnected={isWebRTCConnected}
         />
+      </main>
 
-        {/* Connection status */}
-        {webrtcError && (
-          <div className="webrtc-error">
-            <p>⚠️ {webrtcError}</p>
-          </div>
-        )}
+      {/* WebRTC Error Toast */}
+      {webrtcError && (
+        <div className="absolute bottom-4 left-4 right-4 bg-error text-white p-3 rounded border-2 border-ink shadow-hard-sm font-mono text-sm">
+          ⚠️ {webrtcError}
+        </div>
+      )}
 
-        {/* Listening indicator */}
-        {isListening && (
-          <div className="listening-indicator">
-            <div className="listening-pulse" />
-            <p>🔊 {selectedFriend?.username} is talking...</p>
-          </div>
-        )}
-
-        <PTTButton
-          isEnabled={isPTTEnabled && isWebRTCConnected}
-          selectedFriendName={selectedFriend?.username || null}
-          onPTTStart={handlePTTStart}
-          onPTTEnd={handlePTTEnd}
-        />
-      </div>
+      {/* Listening Indicator - shown in FriendWheel now */}
     </div>
   )
 }

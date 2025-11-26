@@ -13,7 +13,7 @@ YapMe is a desktop application that brings back the simplicity of AOL Instant Me
 ## Architecture
 
 ### Stack
-- **Desktop App:** Electron + React + TypeScript
+- **Desktop App:** Electron + React + TypeScript + Tailwind CSS
 - **Backend:** Node.js on Railway (Express + Socket.io + Mediasoup)
 - **Database:** Supabase (Postgres + Realtime + Auth)
 - **Voice Storage:** Railway ephemeral disk + Cloudflare R2
@@ -37,8 +37,10 @@ YapMe is a desktop application that brings back the simplicity of AOL Instant Me
 - Username selection and user management
 - Friend system (add, accept/decline, list)
 - Real-time presence updates via Supabase Realtime
+- FriendWheel UI with walkie-talkie interface
+- Expandable buddy list drawer
 - PTT button UI with keyboard/mouse support
-- Beautiful retro design system
+- Beautiful retro-digital design system (Teenage Engineering inspired)
 - Railway server deployed and running
 
 ### What's Next
@@ -58,31 +60,27 @@ desktop/
 ├── src/
 │   ├── components/
 │   │   ├── Auth/
-│   │   │   ├── LoginScreen.tsx  # ✅ Google OAuth screen
-│   │   │   └── UsernameSetup.tsx # ✅ Username selection
-│   │   ├── BuddyList/
-│   │   │   ├── BuddyList.tsx    # ✅ Main buddy list UI
-│   │   │   ├── BuddyItem.tsx    # ✅ Individual friend row
-│   │   │   └── AddFriend.tsx    # ✅ Add friend modal
-│   │   └── PTT/
-│   │       ├── PTTButton.tsx    # ✅ Retro PTT button with animations
-│   │       └── AudioIndicator.tsx # 🔄 Visual audio level indicator (planned)
+│   │   │   ├── LoginScreen.tsx  # ✅ Google OAuth screen (Tailwind)
+│   │   │   └── UsernameSetup.tsx # ✅ Username selection (Tailwind)
+│   │   ├── FriendWheel/
+│   │   │   ├── Avatar.tsx       # ✅ User avatar with technical overlays
+│   │   │   ├── TitleBar.tsx     # ✅ App header with username
+│   │   │   ├── FriendWheel.tsx  # ✅ Main walkie-talkie interface
+│   │   │   └── BuddyListDrawer.tsx # ✅ Expandable friend management
+│   │   └── _archived/           # 📦 Old BuddyList/PTT components
 │   ├── hooks/
 │   │   ├── useAuth.ts           # ✅ Authentication & session management
 │   │   ├── useFriends.ts        # ✅ Friend list & realtime updates
-│   │   ├── useWebRTC.ts         # 🔄 WebRTC audio (Phase 7)
-│   │   └── usePresence.ts       # 🔄 Enhanced presence (Phase 7)
+│   │   └── useWebRTC.ts         # 🔄 WebRTC audio (Phase 7)
 │   ├── lib/
 │   │   ├── supabase.ts          # ✅ Supabase client setup
-│   │   ├── webrtc.ts            # 🔄 WebRTC utilities (Phase 7)
-│   │   └── audio.ts             # 🔄 Audio processing (Phase 7)
-│   ├── styles/
-│   │   ├── variables.css        # ✅ Warm retro design tokens
-│   │   ├── global.css           # ✅ Global styles & animations
-│   │   └── components.css       # ✅ Component styles
+│   │   └── webrtc.ts            # 🔄 WebRTC utilities (Phase 7)
 │   ├── types/
 │   │   └── index.ts             # ✅ TypeScript types
+│   ├── index.css                # ✅ Tailwind entry point
 │   └── App.tsx                  # ✅ Root component
+├── tailwind.config.js           # ✅ Retro-digital theme config
+├── postcss.config.js            # ✅ PostCSS + Tailwind
 └── tsconfig.node.json           # ✅ CRITICAL: CommonJS for Electron
 ```
 
@@ -142,10 +140,12 @@ cd desktop && npm run build:electron  # macOS .dmg
 ## Key Implementation Details
 
 ### Push-to-Talk Mechanics (Current)
-- ✅ Click buddy to select target
+- ✅ Scroll friend wheel to select target
 - ✅ Hold spacebar (or click button) to transmit
-- ✅ Visual button animations and ripple effects
-- ✅ Button disabled when friend is offline
+- ✅ Visual button animations with "ON AIR" indicator
+- ✅ Audio visualizer with matrix-green bars
+- ✅ Button disabled when friend is offline or WebRTC not connected
+- ✅ Listening indicator when friend talks
 - 🔄 Audio capture and streaming (Phase 7)
 - 🔄 If recipient unavailable, record voice message (Phase 2)
 
@@ -213,6 +213,28 @@ Current architecture handles <100 users on single Railway instance. Beyond MVP:
 5. CDN for desktop app distribution
 
 ## Important Technical Notes
+
+### Design System (Tailwind CSS)
+
+The app uses a **retro-digital aesthetic** inspired by Teenage Engineering devices:
+
+**Color Palette:**
+- `bone` (#F0F0F0) - Background, light surfaces
+- `concrete` (#D4D4D4) - Secondary surfaces, borders
+- `ink` (#111111) - Primary text, borders
+- `signal` (#FF4400) - High-visibility orange for CTAs
+- `electric` (#0055FF) - Tech blue accents
+- `led` (#00FF41) - Matrix green for status indicators
+
+**Key Features:**
+- Hard shadows (`shadow-hard`, `shadow-hard-sm`) for tactile button feel
+- Pressed state with inset shadows and translation
+- Blink animation for cursor effects
+- Technical overlays on avatars (corner markers, crosshairs)
+- Audio visualizer with matrix-green bars
+- Monospace font (Space Mono) for technical aesthetic
+
+**Configuration:** See [tailwind.config.js](desktop/tailwind.config.js:45-49) for full theme setup.
 
 ### Electron TypeScript Configuration
 **CRITICAL:** The Electron main process (`desktop/electron/main.ts`) must be compiled to CommonJS, not ES modules. This is configured in `tsconfig.node.json`:
