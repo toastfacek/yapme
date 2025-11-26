@@ -50,6 +50,15 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
+// Public IP endpoint (for determining ANNOUNCED_IP)
+app.get('/public-ip', (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress
+  res.json({
+    ip,
+    note: 'Use this IP for ANNOUNCED_IP environment variable in production'
+  })
+})
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id)
@@ -61,7 +70,13 @@ io.on('connection', (socket) => {
     socket.join(`user:${userId}`)
     socket.emit('authenticated', { userId })
   })
-
+    
+// In server/src/index.ts
+app.get('/public-ip', (req, res) => {
+  res.json({ 
+    ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress 
+  })
+})
   // Status updates
   socket.on('update_status', ({ status }) => {
     const userId = socket.data.userId
