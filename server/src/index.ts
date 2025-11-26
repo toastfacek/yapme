@@ -70,13 +70,7 @@ io.on('connection', (socket) => {
     socket.join(`user:${userId}`)
     socket.emit('authenticated', { userId })
   })
-    
-// In server/src/index.ts
-app.get('/public-ip', (req, res) => {
-  res.json({ 
-    ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress 
-  })
-})
+
   // Status updates
   socket.on('update_status', ({ status }) => {
     const userId = socket.data.userId
