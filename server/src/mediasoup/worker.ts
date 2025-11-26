@@ -22,8 +22,8 @@ export async function createWorker(): Promise<MediasoupTypes.Worker> {
 
   worker = await mediasoup.createWorker({
     logLevel: 'warn',
-    rtcMinPort: 10000,
-    rtcMaxPort: 10100,
+    rtcMinPort: parseInt(process.env.RTC_MIN_PORT || '10000'),
+    rtcMaxPort: parseInt(process.env.RTC_MAX_PORT || '10100'),
   })
 
   console.log('✅ Mediasoup worker created [PID:', worker.pid, ']')

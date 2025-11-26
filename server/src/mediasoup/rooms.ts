@@ -89,7 +89,7 @@ export async function createWebRtcTransport(
     listenIps: [
       {
         ip: '0.0.0.0',
-        announcedIp: process.env.MEDIASOUP_ANNOUNCED_IP || undefined,
+        announcedIp: process.env.ANNOUNCED_IP || undefined,
       },
     ],
     enableUdp: true,
@@ -159,44 +159,53 @@ export async function createProducer(
   peer.producer = producer
   console.log(`🎤 Created producer for ${userId} in room ${roomId}`)
 
-  // Create consumers for other peers in the room
-  const room = getRoom(roomId)
-  if (room) {
-    for (const [otherUserId, otherPeer] of room.entries()) {
-      if (otherUserId !== userId && otherPeer.recvTransport) {
-        await createConsumer(roomId, otherUserId, userId, producer)
-      }
-    }
-  }
-
   return producer
 }
 
 export async function createConsumer(
   roomId: string,
-  consumerUserId: string,
-  producerUserId: string,
-  producer: MediasoupTypes.Producer
+  socketId: string,
+  producerId: string,
+  rtpCapabilities: MediasoupTypes.RtpCapabilities
 ): Promise<MediasoupTypes.Consumer | null> {
   const router = getRouter()
   if (!router) {
     throw new Error('Router not initialized')
   }
 
-  const consumerPeer = getPeer(roomId, consumerUserId)
+  // Find the peer by socketId
+  const room = getRoom(roomId)
+  if (!room) {
+    throw new Error('Room not found')
+  }
+
+  let consumerPeer: Peer | undefined
+  for (const peer of room.values()) {
+    if (peer.socketId === socketId) {
+      consumerPeer = peer
+      break
+    }
+  }
+
   if (!consumerPeer || !consumerPeer.recvTransport) {
-    console.log(`⚠️ Cannot create consumer: peer ${consumerUserId} has no recv transport`)
+    console.log(`⚠️ Cannot create consumer: peer with socket ${socketId} has no recv transport`)
+    return null
+  }
+
+  // Check if router can consume
+  if (!router.canConsume({ producerId, rtpCapabilities })) {
+    console.log(`⚠️ Cannot consume: router cannot consume with given capabilities`)
     return null
   }
 
   const consumer = await consumerPeer.recvTransport.consume({
-    producerId: producer.id,
-    rtpCapabilities: router.rtpCapabilities,
+    producerId,
+    rtpCapabilities, // ✅ Use peer's device capabilities, not router's
     paused: false,
   })
 
   consumerPeer.consumers.set(consumer.id, consumer)
-  console.log(`🔊 Created consumer for ${consumerUserId} from ${producerUserId}`)
+  console.log(`🔊 Created consumer for ${consumerPeer.userId} consuming producer ${producerId}`)
 
   return consumer
 }

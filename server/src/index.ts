@@ -11,6 +11,7 @@ import {
   createWebRtcTransport,
   connectTransport,
   createProducer,
+  createConsumer,
   closeProducer,
   getRoomPeers,
 } from './mediasoup/rooms'
@@ -202,6 +203,34 @@ io.on('connection', (socket) => {
       }
     } catch (error: any) {
       console.error('produce error:', error)
+      callback({ error: error.message })
+    }
+  })
+
+  // Consume audio
+  socket.on('consume', async ({ roomId, producerId, rtpCapabilities }, callback) => {
+    try {
+      const userId = socket.data.userId
+      if (!userId) {
+        callback({ error: 'Not authenticated' })
+        return
+      }
+
+      const consumer = await createConsumer(roomId, socket.id, producerId, rtpCapabilities)
+
+      if (!consumer) {
+        callback({ error: 'Failed to create consumer' })
+        return
+      }
+
+      callback({
+        id: consumer.id,
+        producerId: consumer.producerId,
+        kind: consumer.kind,
+        rtpParameters: consumer.rtpParameters,
+      })
+    } catch (error: any) {
+      console.error('consume error:', error)
       callback({ error: error.message })
     }
   })
