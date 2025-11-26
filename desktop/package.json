@@ -7,8 +7,8 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "dev:electron": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && tsc --project tsconfig.node.json && node scripts/fix-electron-require.js && NODE_ENV=development electron dist/electron/main.js\"",
-    "build": "vite build && tsc --project tsconfig.node.json && node scripts/fix-electron-require.js",
+    "dev:electron": "vite",
+    "build": "vite build",
     "build:electron": "npm run build && electron-builder --mac",
     "preview": "vite preview",
     "type-check": "tsc --noEmit"

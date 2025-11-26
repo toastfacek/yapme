@@ -5,8 +5,8 @@ let mainWindow: BrowserWindow | null = null
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
-    width: 360,
-    height: 680,
+    width: 420,
+    height: 760,
     resizable: false,
     webPreferences: {
       nodeIntegration: false,
