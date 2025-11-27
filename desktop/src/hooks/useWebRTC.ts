@@ -24,8 +24,10 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
   const roomId = useRef<string | null>(null)
   const audioContext = useRef<AudioContext | null>(null)
   const gainNode = useRef<GainNode | null>(null)
+  const analyserNode = useRef<AnalyserNode | null>(null)
   const mediaStreamSource = useRef<MediaStreamAudioSourceNode | null>(null)
   const htmlAudioEl = useRef<HTMLAudioElement | null>(null)
+  const audioLevelInterval = useRef<NodeJS.Timeout | null>(null)
 
   // Initialize socket connection
   useEffect(() => {
@@ -117,14 +119,21 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
       // Create AudioContext with gain node for volume amplification
       audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)()
       gainNode.current = audioContext.current.createGain()
+      analyserNode.current = audioContext.current.createAnalyser()
 
       // BOOST: Set gain to 5x (500%) for very loud audio
       gainNode.current.gain.value = 5.0
 
+      // Setup analyser for monitoring
+      analyserNode.current.fftSize = 256
+
+      // Chain: source -> analyser -> gain -> destination
+      // (analyser will be connected when we have a source)
       gainNode.current.connect(audioContext.current.destination)
 
       audioContext.current.resume().then(() => {
         console.log('🔊 AudioContext resumed with 5x gain boost')
+        console.log('🔊 AudioContext sampleRate:', audioContext.current?.sampleRate)
       })
     }
 
@@ -194,7 +203,7 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
           }
         )
 
-        if (stream && audioContext.current && gainNode.current) {
+        if (stream && audioContext.current && gainNode.current && analyserNode.current) {
           // FIX 1: Resume AudioContext if suspended (browser autoplay policy)
           if (audioContext.current.state === 'suspended') {
             console.log('🔊 AudioContext suspended, resuming...')
@@ -208,12 +217,39 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
             mediaStreamSource.current.disconnect()
           }
 
-          // Route audio ONLY through Web Audio API for volume boost
-          // DO NOT use audio element - creates conflict
-          mediaStreamSource.current = audioContext.current.createMediaStreamSource(stream)
-          mediaStreamSource.current.connect(gainNode.current)
+          // Clear any previous audio level monitoring
+          if (audioLevelInterval.current) {
+            clearInterval(audioLevelInterval.current)
+            audioLevelInterval.current = null
+          }
 
-          // Fallback/parallel: hidden audio element to force playback if Web Audio is blocked
+          // Route audio through Web Audio API: source -> analyser -> gain -> destination
+          mediaStreamSource.current = audioContext.current.createMediaStreamSource(stream)
+          mediaStreamSource.current.connect(analyserNode.current)
+          analyserNode.current.connect(gainNode.current)
+
+          // Start monitoring audio levels to see if data is flowing
+          const dataArray = new Uint8Array(analyserNode.current.frequencyBinCount)
+          let logCount = 0
+          audioLevelInterval.current = setInterval(() => {
+            if (!analyserNode.current) return
+            analyserNode.current.getByteFrequencyData(dataArray)
+            const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length
+            const max = Math.max(...dataArray)
+            
+            // Only log first 10 times and when there's actual audio
+            if (logCount < 10 || average > 1) {
+              console.log(`🔊 Audio levels - avg: ${average.toFixed(1)}, max: ${max}, hasData: ${average > 0}`)
+              logCount++
+            }
+            
+            // If we've logged 10 times with no audio, something is wrong
+            if (logCount === 10 && average === 0) {
+              console.warn('⚠️ NO AUDIO DATA DETECTED after 10 samples - WebRTC may not be receiving data')
+            }
+          }, 200)
+
+          // Also try HTMLAudioElement as backup
           if (!htmlAudioEl.current) {
             htmlAudioEl.current = document.createElement('audio')
             htmlAudioEl.current.style.display = 'none'
@@ -253,6 +289,7 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
             readyState: t.readyState
           })))
           console.log('🔊 AudioContext state:', audioContext.current.state)
+          console.log('🔊 AudioContext sampleRate:', audioContext.current.sampleRate)
           console.log('🔊 Gain node value:', gainNode.current.gain.value)
           console.log('🔊 MediaStreamSource connected:', !!mediaStreamSource.current)
 
@@ -264,6 +301,10 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
             console.log('🔊 Sample rate:', settings.sampleRate)
             console.log('🔊 Channel count:', settings.channelCount)
           }
+
+          // Expose for debugging
+          ;(window as any).__yap_webrtc = webrtcManager.current
+          ;(window as any).__yap_stream = stream
         }
       } catch (err) {
         console.error('Failed to consume audio:', err)
@@ -274,10 +315,26 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
       console.log('🔊 Producer closed')
       setIsListening(false)
 
+      // Clear audio level monitoring
+      if (audioLevelInterval.current) {
+        clearInterval(audioLevelInterval.current)
+        audioLevelInterval.current = null
+      }
+
       // Disconnect and clear media stream source
       if (mediaStreamSource.current) {
         mediaStreamSource.current.disconnect()
         mediaStreamSource.current = null
+      }
+
+      // Disconnect analyser
+      if (analyserNode.current) {
+        analyserNode.current.disconnect()
+        // Reconnect gain to destination (without analyser in chain)
+        if (gainNode.current && audioContext.current) {
+          gainNode.current.disconnect()
+          gainNode.current.connect(audioContext.current.destination)
+        }
       }
     }
 
