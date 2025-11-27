@@ -25,6 +25,7 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
   const audioContext = useRef<AudioContext | null>(null)
   const gainNode = useRef<GainNode | null>(null)
   const mediaStreamSource = useRef<MediaStreamAudioSourceNode | null>(null)
+  const htmlAudioEl = useRef<HTMLAudioElement | null>(null)
 
   // Initialize socket connection
   useEffect(() => {
@@ -138,6 +139,14 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
         await audioContext.current.resume()
         console.log('🔊 AudioContext resumed on user interaction')
       }
+      if (htmlAudioEl.current) {
+        try {
+          await htmlAudioEl.current.play()
+          console.log('🔊 HTMLAudioElement playback resumed on interaction')
+        } catch (err) {
+          console.warn('Could not resume HTMLAudioElement:', err)
+        }
+      }
     }
 
     document.addEventListener('click', resumeOnInteraction, { once: true })
@@ -203,6 +212,21 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
           // DO NOT use audio element - creates conflict
           mediaStreamSource.current = audioContext.current.createMediaStreamSource(stream)
           mediaStreamSource.current.connect(gainNode.current)
+
+          // Fallback/parallel: hidden audio element to force playback if Web Audio is blocked
+          if (!htmlAudioEl.current) {
+            htmlAudioEl.current = document.createElement('audio')
+            htmlAudioEl.current.style.display = 'none'
+            htmlAudioEl.current.playsInline = true
+            htmlAudioEl.current.autoplay = true
+            document.body.appendChild(htmlAudioEl.current)
+          }
+          htmlAudioEl.current.srcObject = stream
+          htmlAudioEl.current.muted = false
+          htmlAudioEl.current.volume = 1.0
+          htmlAudioEl.current.play().catch(err => {
+            console.warn('HTMLAudioElement play blocked:', err)
+          })
 
           console.log('🔊 Audio routing configured successfully')
           console.log('🔊 Stream tracks:', stream.getTracks().map(t => ({

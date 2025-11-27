@@ -34,5 +34,5 @@ app = "yapme" # change to your Fly app name after `fly launch`
   processes = ["app"]
 
   [[services.ports]]
-    port = 40000
+    start_port = 40000
     end_port = 40100
