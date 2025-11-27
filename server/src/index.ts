@@ -64,10 +64,17 @@ io.on('connection', (socket) => {
   console.log('Client connected:', socket.id)
 
   // Authentication
-  socket.on('authenticate', ({ token, userId }) => {
+  socket.on('authenticate', ({ token, userId }, callback) => {
     console.log('User authenticated:', userId)
     socket.data.userId = userId
     socket.join(`user:${userId}`)
+
+    // Call the callback if provided (for acknowledgment)
+    if (callback && typeof callback === 'function') {
+      callback({ success: true, userId })
+    }
+
+    // Also emit for backward compatibility
     socket.emit('authenticated', { userId })
   })
 
