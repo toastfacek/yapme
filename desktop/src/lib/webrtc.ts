@@ -2,7 +2,6 @@ import { Device } from 'mediasoup-client'
 import type { RtpCapabilities } from 'mediasoup-client/lib/RtpParameters'
 import type { Transport } from 'mediasoup-client/lib/Transport'
 import type { Producer } from 'mediasoup-client/lib/Producer'
-import type { Consumer } from 'mediasoup-client/lib/Consumer'
 
 export interface WebRTCTransportParams {
   id: string
@@ -16,13 +15,11 @@ export class WebRTCManager {
   private sendTransport: Transport | null = null
   private recvTransport: Transport | null = null
   private producer: Producer | null = null
-  private consumer: Consumer | null = null
   private audioStream: MediaStream | null = null
 
   async initDevice(routerRtpCapabilities: RtpCapabilities): Promise<void> {
     this.device = new Device()
     await this.device.load({ routerRtpCapabilities })
-    console.log('✅ Mediasoup device loaded')
   }
 
   getDevice(): Device | null {
@@ -38,44 +35,26 @@ export class WebRTCManager {
       throw new Error('Device not initialized')
     }
 
-    console.log('🚚 Creating send transport with params:', {
-      id: transportParams.id,
-      iceCandidatesCount: transportParams.iceCandidates?.length,
-      hasIceParameters: !!transportParams.iceParameters,
-      hasDtlsParameters: !!transportParams.dtlsParameters,
-    })
-
     this.sendTransport = this.device.createSendTransport(transportParams)
 
     this.sendTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
-      console.log('🔌 SendTransport "connect" event fired!')
       try {
         await onConnect(dtlsParameters)
-        console.log('🔌 SendTransport connect callback succeeded')
         callback()
       } catch (error) {
-        console.error('🔌 SendTransport connect FAILED:', error)
         errback(error as Error)
       }
     })
 
     this.sendTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
-      console.log('🎤 SendTransport "produce" event fired for:', kind)
       try {
         const id = await onProduce(kind, rtpParameters)
-        console.log('🎤 SendTransport produce callback succeeded, id:', id)
         callback({ id })
       } catch (error) {
-        console.error('🎤 SendTransport produce FAILED:', error)
         errback(error as Error)
       }
     })
 
-    this.sendTransport.on('connectionstatechange', (state: string) => {
-      console.log('🔌 SendTransport connectionstatechange:', state)
-    })
-
-    console.log('✅ Send transport created')
     return this.sendTransport
   }
 
@@ -87,39 +66,17 @@ export class WebRTCManager {
       throw new Error('Device not initialized')
     }
 
-    console.log('🚚 Creating recv transport with params:', {
-      id: transportParams.id,
-      iceCandidatesCount: transportParams.iceCandidates?.length,
-      iceCandidates: transportParams.iceCandidates, // Show full ICE candidates
-      hasIceParameters: !!transportParams.iceParameters,
-      hasDtlsParameters: !!transportParams.dtlsParameters,
-    })
-
     this.recvTransport = this.device.createRecvTransport(transportParams)
 
-    // Log all transport events for debugging
     this.recvTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
-      console.log('🔌 RecvTransport "connect" event fired!')
-      console.log('🔌 DTLS parameters:', dtlsParameters)
       try {
         await onConnect(dtlsParameters)
-        console.log('🔌 RecvTransport connect callback succeeded')
         callback()
       } catch (error) {
-        console.error('🔌 RecvTransport connect FAILED:', error)
         errback(error as Error)
       }
     })
 
-    this.recvTransport.on('connectionstatechange', (state: string) => {
-      console.log('🔌 RecvTransport connectionstatechange:', state)
-    })
-
-    this.recvTransport.on('icegatheringstatechange', (state: string) => {
-      console.log('🔌 RecvTransport icegatheringstatechange:', state)
-    })
-
-    console.log('✅ Receive transport created')
     return this.recvTransport
   }
 
@@ -128,22 +85,16 @@ export class WebRTCManager {
       return this.audioStream
     }
 
-    try {
-      this.audioStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-        video: false,
-      })
+    this.audioStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: false,
+    })
 
-      console.log('🎤 Audio stream acquired')
-      return this.audioStream
-    } catch (error) {
-      console.error('Failed to get audio stream:', error)
-      throw error
-    }
+    return this.audioStream
   }
 
   async produce(): Promise<Producer | null> {
@@ -156,20 +107,10 @@ export class WebRTCManager {
       const stream = await this.getAudioStream()
       const audioTrack = stream.getAudioTracks()[0]
 
-      console.log('🎤 Audio track details:', {
-        kind: audioTrack.kind,
-        enabled: audioTrack.enabled,
-        muted: audioTrack.muted,
-        readyState: audioTrack.readyState,
-        label: audioTrack.label
-      })
-
       this.producer = await this.sendTransport.produce({
         track: audioTrack,
       })
 
-      console.log('🎤 Producer created:', this.producer.id)
-      console.log('🎤 Producer track:', this.producer.track?.readyState)
       return this.producer
     } catch (error) {
       console.error('Failed to produce:', error)
@@ -181,14 +122,11 @@ export class WebRTCManager {
     if (this.producer) {
       this.producer.close()
       this.producer = null
-      console.log('🎤 Producer closed')
     }
 
-    // Stop and clear the audio stream so we get a fresh one next time
     if (this.audioStream) {
       this.audioStream.getTracks().forEach((track) => track.stop())
       this.audioStream = null
-      console.log('🎤 Audio stream stopped')
     }
   }
 
@@ -202,20 +140,10 @@ export class WebRTCManager {
     }
 
     try {
-      // Log transport state BEFORE consuming
-      console.log('🔊 RecvTransport state before consume:', {
-        id: this.recvTransport.id,
-        connectionState: this.recvTransport.connectionState,
-        iceState: (this.recvTransport as any)._handler?._pc?.iceConnectionState,
-        direction: this.recvTransport.direction,
-      })
-
       const { id, kind, rtpParameters } = await onConsume(
         producerId,
         this.device.rtpCapabilities
       )
-
-      console.log('🔊 Creating consumer with:', { id, kind, rtpParametersCodecs: rtpParameters?.codecs })
 
       const consumer = await this.recvTransport.consume({
         id,
@@ -224,61 +152,14 @@ export class WebRTCManager {
         rtpParameters,
       })
 
-      // Store consumer reference
-      this.consumer = consumer
-
-      // Log consumer state
-      console.log('🔊 Consumer created:', {
-        id: consumer.id,
-        producerId: consumer.producerId,
-        kind: consumer.kind,
-        paused: consumer.paused,
-        trackEnabled: consumer.track.enabled,
-        trackMuted: consumer.track.muted,
-        trackReadyState: consumer.track.readyState,
-      })
-
-      // Log transport state AFTER consuming (should be 'connected' now)
-      console.log('🔊 RecvTransport state after consume:', {
-        connectionState: this.recvTransport.connectionState,
-        iceState: (this.recvTransport as any)._handler?._pc?.iceConnectionState,
-      })
-
-      // Resume the consumer (no-op if already unpaused, but ensures track is enabled)
+      // Resume the consumer (ensures track is enabled)
       await consumer.resume()
-      console.log('🔊 Consumer after resume - paused:', consumer.paused)
 
-      const stream = new MediaStream([consumer.track])
-      console.log('🔊 Consumer created and resumed, playing audio')
-
-      // Monitor for consumer events
-      consumer.on('transportclose', () => {
-        console.log('🔊 Consumer: transport closed')
-      })
-      consumer.on('trackended', () => {
-        console.log('🔊 Consumer: track ended')
-      })
-
-      return stream
+      return new MediaStream([consumer.track])
     } catch (error) {
       console.error('Failed to consume:', error)
       return null
     }
-  }
-
-  // Debug method to get transport stats
-  async getRecvTransportStats(): Promise<any> {
-    if (!this.recvTransport) return null
-    try {
-      const stats = await this.recvTransport.getStats()
-      return stats
-    } catch (e) {
-      return null
-    }
-  }
-
-  getConsumer(): Consumer | null {
-    return this.consumer
   }
 
   cleanup(): void {
@@ -298,7 +179,5 @@ export class WebRTCManager {
       this.audioStream.getTracks().forEach((track) => track.stop())
       this.audioStream = null
     }
-
-    console.log('🧹 WebRTC cleaned up')
   }
 }

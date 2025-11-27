@@ -4,10 +4,6 @@ import { WebRTCManager } from '@/lib/webrtc'
 
 const SERVER_URL = import.meta.env.VITE_WS_URL || import.meta.env.VITE_SERVER_URL || 'https://yapme-production.up.railway.app'
 
-console.log('🌐 WebRTC Server URL:', SERVER_URL)
-console.log('🌐 VITE_WS_URL:', import.meta.env.VITE_WS_URL)
-console.log('🌐 VITE_SERVER_URL:', import.meta.env.VITE_SERVER_URL)
-
 interface UseWebRTCProps {
   userId: string | null
   selectedFriendId: string | null
@@ -24,16 +20,12 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
   const roomId = useRef<string | null>(null)
   const audioContext = useRef<AudioContext | null>(null)
   const gainNode = useRef<GainNode | null>(null)
-  const analyserNode = useRef<AnalyserNode | null>(null)
   const mediaStreamSource = useRef<MediaStreamAudioSourceNode | null>(null)
   const htmlAudioEl = useRef<HTMLAudioElement | null>(null)
-  const audioLevelInterval = useRef<NodeJS.Timeout | null>(null)
 
   // Initialize socket connection
   useEffect(() => {
     if (!userId) return
-
-    console.log('🔌 Connecting to WebRTC server:', SERVER_URL)
 
     const newSocket = io(SERVER_URL, {
       transports: ['websocket'],
@@ -43,24 +35,21 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
     })
 
     newSocket.on('connect', () => {
-      console.log('✅ Socket connected to', SERVER_URL)
+      console.log('✅ Connected to WebRTC server')
       setIsConnected(true)
       setError(null)
 
       // Authenticate
-      console.log('🔐 Authenticating with userId:', userId)
       newSocket.emit('authenticate', { userId }, (response: any) => {
         if (response?.error) {
-          console.error('🔐 Authentication failed:', response.error)
+          console.error('Authentication failed:', response.error)
           setError(`Authentication failed: ${response.error}`)
-        } else {
-          console.log('🔐 Authentication successful:', response)
         }
       })
     })
 
     newSocket.on('disconnect', () => {
-      console.log('❌ Socket disconnected')
+      console.log('❌ Disconnected from server')
       setIsConnected(false)
     })
 
@@ -88,7 +77,6 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
 
     const initWebRTC = async () => {
       try {
-        // Get router RTP capabilities
         socket.emit('getRouterRtpCapabilities', null, async (response: any) => {
           if (response.error) {
             setError('Failed to get router capabilities')
@@ -98,7 +86,6 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
           const manager = new WebRTCManager()
           await manager.initDevice(response.rtpCapabilities)
           webrtcManager.current = manager
-          console.log('✅ WebRTC manager initialized')
         })
       } catch (err: any) {
         console.error('WebRTC initialization error:', err)
@@ -109,60 +96,34 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
     initWebRTC()
   }, [socket, isConnected])
 
-  // Setup Web Audio API for playback with volume boost
-  // This runs ONCE and refs persist across re-renders
+  // Setup Web Audio API for playback
   useEffect(() => {
-    // Only create if not already created
     if (!audioContext.current) {
-      console.log('🔊 Creating AudioContext with 5x gain boost')
-
-      // Create AudioContext with gain node for volume amplification
       audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)()
       gainNode.current = audioContext.current.createGain()
-      analyserNode.current = audioContext.current.createAnalyser()
-
-      // BOOST: Set gain to 5x (500%) for very loud audio
-      gainNode.current.gain.value = 5.0
-
-      // Setup analyser for monitoring
-      analyserNode.current.fftSize = 256
-
-      // Chain: source -> analyser -> gain -> destination
-      // (analyser will be connected when we have a source)
+      gainNode.current.gain.value = 1.0
       gainNode.current.connect(audioContext.current.destination)
-
-      audioContext.current.resume().then(() => {
-        console.log('🔊 AudioContext resumed with 5x gain boost')
-        console.log('🔊 AudioContext sampleRate:', audioContext.current?.sampleRate)
-      })
+      audioContext.current.resume()
     }
-
-    // NO CLEANUP - let refs persist for the component's entire lifetime
-    // AudioContext will only be cleaned up when component truly unmounts
   }, [])
 
-  // FIX 3: Resume AudioContext on any click (backup for autoplay policy)
+  // Resume AudioContext on user interaction (autoplay policy)
   useEffect(() => {
     const resumeOnInteraction = async () => {
       if (audioContext.current?.state === 'suspended') {
         await audioContext.current.resume()
-        console.log('🔊 AudioContext resumed on user interaction')
       }
       if (htmlAudioEl.current) {
         try {
           await htmlAudioEl.current.play()
-          console.log('🔊 HTMLAudioElement playback resumed on interaction')
         } catch (err) {
-          console.warn('Could not resume HTMLAudioElement:', err)
+          // Ignore - will retry on next interaction
         }
       }
     }
 
     document.addEventListener('click', resumeOnInteraction, { once: true })
-
-    return () => {
-      document.removeEventListener('click', resumeOnInteraction)
-    }
+    return () => document.removeEventListener('click', resumeOnInteraction)
   }, [])
 
   // Listen for incoming audio (newProducer event)
@@ -170,7 +131,6 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
     if (!socket) return
 
     const handleNewProducer = async ({ producerId }: { producerId: string }) => {
-      console.log('🔊 New producer detected:', producerId)
       setIsListening(true)
 
       if (!webrtcManager.current || !roomId.current) {
@@ -179,7 +139,6 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
       }
 
       try {
-        // Consume the producer
         const stream = await webrtcManager.current.consume(
           producerId,
           async (pId, rtpCapabilities) => {
@@ -203,108 +162,33 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
           }
         )
 
-        if (stream && audioContext.current && gainNode.current && analyserNode.current) {
-          // FIX 1: Resume AudioContext if suspended (browser autoplay policy)
+        if (stream && audioContext.current && gainNode.current) {
+          // Resume AudioContext if suspended
           if (audioContext.current.state === 'suspended') {
-            console.log('🔊 AudioContext suspended, resuming...')
             await audioContext.current.resume()
-            console.log('🔊 AudioContext resumed, state:', audioContext.current.state)
           }
 
-          // CRITICAL: Store reference to prevent garbage collection
           // Disconnect old source if exists
           if (mediaStreamSource.current) {
             mediaStreamSource.current.disconnect()
           }
 
-          // Clear any previous audio level monitoring
-          if (audioLevelInterval.current) {
-            clearInterval(audioLevelInterval.current)
-            audioLevelInterval.current = null
-          }
-
-          // Route audio through Web Audio API: source -> analyser -> gain -> destination
+          // Route audio through Web Audio API
           mediaStreamSource.current = audioContext.current.createMediaStreamSource(stream)
-          mediaStreamSource.current.connect(analyserNode.current)
-          analyserNode.current.connect(gainNode.current)
+          mediaStreamSource.current.connect(gainNode.current)
 
-          // Start monitoring audio levels to see if data is flowing
-          const dataArray = new Uint8Array(analyserNode.current.frequencyBinCount)
-          let logCount = 0
-          audioLevelInterval.current = setInterval(() => {
-            if (!analyserNode.current) return
-            analyserNode.current.getByteFrequencyData(dataArray)
-            const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length
-            const max = Math.max(...dataArray)
-            
-            // Only log first 10 times and when there's actual audio
-            if (logCount < 10 || average > 1) {
-              console.log(`🔊 Audio levels - avg: ${average.toFixed(1)}, max: ${max}, hasData: ${average > 0}`)
-              logCount++
-            }
-            
-            // If we've logged 10 times with no audio, something is wrong
-            if (logCount === 10 && average === 0) {
-              console.warn('⚠️ NO AUDIO DATA DETECTED after 10 samples - WebRTC may not be receiving data')
-            }
-          }, 200)
-
-          // Also try HTMLAudioElement as backup
+          // Also use HTMLAudioElement as backup
           if (!htmlAudioEl.current) {
             htmlAudioEl.current = document.createElement('audio')
             htmlAudioEl.current.style.display = 'none'
             htmlAudioEl.current.playsInline = true
             htmlAudioEl.current.autoplay = true
             document.body.appendChild(htmlAudioEl.current)
-
-            // Debug listeners
-            htmlAudioEl.current.addEventListener('playing', () => {
-              console.log('🔊 HTMLAudioElement event: playing')
-            })
-            htmlAudioEl.current.addEventListener('pause', () => {
-              console.log('🔊 HTMLAudioElement event: pause')
-            })
-            htmlAudioEl.current.addEventListener('ended', () => {
-              console.log('🔊 HTMLAudioElement event: ended')
-            })
-            htmlAudioEl.current.addEventListener('error', (e) => {
-              console.error('🔊 HTMLAudioElement error:', e)
-            })
-
-            // expose for manual debugging
-            ;(window as any).__yap_audio_el = htmlAudioEl.current
           }
           htmlAudioEl.current.srcObject = stream
           htmlAudioEl.current.muted = false
           htmlAudioEl.current.volume = 1.0
-          htmlAudioEl.current.play().catch(err => {
-            console.warn('HTMLAudioElement play blocked:', err)
-          })
-
-          console.log('🔊 Audio routing configured successfully')
-          console.log('🔊 Stream tracks:', stream.getTracks().map(t => ({
-            kind: t.kind,
-            enabled: t.enabled,
-            muted: t.muted,
-            readyState: t.readyState
-          })))
-          console.log('🔊 AudioContext state:', audioContext.current.state)
-          console.log('🔊 AudioContext sampleRate:', audioContext.current.sampleRate)
-          console.log('🔊 Gain node value:', gainNode.current.gain.value)
-          console.log('🔊 MediaStreamSource connected:', !!mediaStreamSource.current)
-
-          // DIAGNOSTIC: Check if audio data is flowing through the stream
-          const audioTrack = stream.getAudioTracks()[0]
-          if (audioTrack) {
-            const settings = audioTrack.getSettings()
-            console.log('🔊 Track settings:', settings)
-            console.log('🔊 Sample rate:', settings.sampleRate)
-            console.log('🔊 Channel count:', settings.channelCount)
-          }
-
-          // Expose for debugging
-          ;(window as any).__yap_webrtc = webrtcManager.current
-          ;(window as any).__yap_stream = stream
+          htmlAudioEl.current.play().catch(() => {})
         }
       } catch (err) {
         console.error('Failed to consume audio:', err)
@@ -312,29 +196,11 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
     }
 
     const handleProducerClosed = () => {
-      console.log('🔊 Producer closed')
       setIsListening(false)
 
-      // Clear audio level monitoring
-      if (audioLevelInterval.current) {
-        clearInterval(audioLevelInterval.current)
-        audioLevelInterval.current = null
-      }
-
-      // Disconnect and clear media stream source
       if (mediaStreamSource.current) {
         mediaStreamSource.current.disconnect()
         mediaStreamSource.current = null
-      }
-
-      // Disconnect analyser
-      if (analyserNode.current) {
-        analyserNode.current.disconnect()
-        // Reconnect gain to destination (without analyser in chain)
-        if (gainNode.current && audioContext.current) {
-          gainNode.current.disconnect()
-          gainNode.current.connect(audioContext.current.destination)
-        }
       }
     }
 
@@ -355,13 +221,11 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
       const newRoomId = [userId, selectedFriendId].sort().join('-')
       roomId.current = newRoomId
 
-      // Join the room
       socket.emit('joinRoom', {
         roomId: newRoomId,
         targetUserId: selectedFriendId,
       })
 
-      // Create transports
       try {
         // Create send transport
         socket.emit(
@@ -452,8 +316,6 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
             )
           }
         )
-
-        console.log('✅ Joined room and transports created')
       } catch (err) {
         console.error('Error setting up transports:', err)
       }
@@ -471,10 +333,8 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
 
   // Start talking (produce audio)
   const startTalking = useCallback(async () => {
-    // FIX 2: Resume AudioContext on PTT press (user gesture)
     if (audioContext.current?.state !== 'running') {
       await audioContext.current?.resume()
-      console.log('🔊 AudioContext resumed on PTT press:', audioContext.current?.state)
     }
 
     if (!webrtcManager.current || !roomId.current) {
@@ -485,7 +345,6 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
     try {
       await webrtcManager.current.produce()
       setIsTalking(true)
-      console.log('🎤 Started talking')
     } catch (err: any) {
       console.error('Failed to start talking:', err)
       setError(err.message)
@@ -501,7 +360,6 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
     webrtcManager.current.closeProducer()
     socket.emit('closeProducer', { roomId: roomId.current })
     setIsTalking(false)
-    console.log('🎤 Stopped talking')
   }, [socket])
 
   // Cleanup on unmount
