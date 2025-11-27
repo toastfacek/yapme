@@ -578,28 +578,56 @@ curl https://yapme-production.up.railway.app/health
 - AudioContext is running
 - Stream tracks show enabled: true, muted: false, readyState: "live"
 - But no audio is actually heard
+- Transport `connectionState` stays at "new" instead of "connected"
 
-**Root Cause:**
-In mediasoup-client, consumers start paused by default on the client side. Even though the server creates the consumer with `paused: false`, the client-side consumer track remains paused until explicitly resumed.
+**Root Cause: Missing or Invalid ANNOUNCED_IP**
+
+The most common cause is the `ANNOUNCED_IP` environment variable not being set correctly. Mediasoup needs to know what IP address to advertise in ICE candidates so clients can connect.
+
+When `ANNOUNCED_IP` is missing or invalid:
+1. Server creates transports with `listenIps: [{ ip: '0.0.0.0', announcedIp: undefined }]`
+2. ICE candidates contain `0.0.0.0` as the IP address
+3. Browsers cannot connect to `0.0.0.0` - it's not a routable address
+4. WebRTC connection never establishes, audio data doesn't flow
 
 **Solution:**
-The `consume()` method in [desktop/src/lib/webrtc.ts](desktop/src/lib/webrtc.ts) must call `consumer.resume()` after creating the consumer:
 
-```typescript
-const consumer = await this.recvTransport.consume({
-  id,
-  producerId,
-  kind,
-  rtpParameters,
-})
-
-// Resume the consumer to start receiving audio
-await consumer.resume()
-
-const stream = new MediaStream([consumer.track])
+For **local development**, add to `server/.env`:
+```bash
+ANNOUNCED_IP=127.0.0.1
 ```
 
-**Note:** This was fixed in the codebase - consumers are now automatically resumed after creation.
+For **Fly.io production**, set in `fly.toml`:
+```toml
+[env]
+  ANNOUNCED_IP = "YOUR_FLY_IPV4_ADDRESS"
+```
+
+Get your Fly.io IPv4 with:
+```bash
+fly ips list
+```
+
+**How to Debug:**
+
+Add logging to check transport state:
+```typescript
+console.log('Transport state:', {
+  connectionState: this.recvTransport.connectionState,  // Should be 'connected'
+  iceState: (this.recvTransport as any)._handler?._pc?.iceConnectionState,
+})
+```
+
+If `connectionState` stays at "new", ANNOUNCED_IP is likely the issue.
+
+**Secondary Fix: Consumer Resume**
+
+The code also calls `consumer.resume()` after creating consumers, which ensures the track is enabled:
+
+```typescript
+const consumer = await this.recvTransport.consume({...})
+await consumer.resume()  // Ensures track is enabled
+```
 
 ## Product Philosophy
 
