@@ -38,24 +38,41 @@ export class WebRTCManager {
       throw new Error('Device not initialized')
     }
 
+    console.log('🚚 Creating send transport with params:', {
+      id: transportParams.id,
+      iceCandidatesCount: transportParams.iceCandidates?.length,
+      hasIceParameters: !!transportParams.iceParameters,
+      hasDtlsParameters: !!transportParams.dtlsParameters,
+    })
+
     this.sendTransport = this.device.createSendTransport(transportParams)
 
     this.sendTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+      console.log('🔌 SendTransport "connect" event fired!')
       try {
         await onConnect(dtlsParameters)
+        console.log('🔌 SendTransport connect callback succeeded')
         callback()
       } catch (error) {
+        console.error('🔌 SendTransport connect FAILED:', error)
         errback(error as Error)
       }
     })
 
     this.sendTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
+      console.log('🎤 SendTransport "produce" event fired for:', kind)
       try {
         const id = await onProduce(kind, rtpParameters)
+        console.log('🎤 SendTransport produce callback succeeded, id:', id)
         callback({ id })
       } catch (error) {
+        console.error('🎤 SendTransport produce FAILED:', error)
         errback(error as Error)
       }
+    })
+
+    this.sendTransport.on('connectionstatechange', (state: string) => {
+      console.log('🔌 SendTransport connectionstatechange:', state)
     })
 
     console.log('✅ Send transport created')
@@ -70,15 +87,36 @@ export class WebRTCManager {
       throw new Error('Device not initialized')
     }
 
+    console.log('🚚 Creating recv transport with params:', {
+      id: transportParams.id,
+      iceCandidatesCount: transportParams.iceCandidates?.length,
+      iceCandidates: transportParams.iceCandidates, // Show full ICE candidates
+      hasIceParameters: !!transportParams.iceParameters,
+      hasDtlsParameters: !!transportParams.dtlsParameters,
+    })
+
     this.recvTransport = this.device.createRecvTransport(transportParams)
 
+    // Log all transport events for debugging
     this.recvTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+      console.log('🔌 RecvTransport "connect" event fired!')
+      console.log('🔌 DTLS parameters:', dtlsParameters)
       try {
         await onConnect(dtlsParameters)
+        console.log('🔌 RecvTransport connect callback succeeded')
         callback()
       } catch (error) {
+        console.error('🔌 RecvTransport connect FAILED:', error)
         errback(error as Error)
       }
+    })
+
+    this.recvTransport.on('connectionstatechange', (state: string) => {
+      console.log('🔌 RecvTransport connectionstatechange:', state)
+    })
+
+    this.recvTransport.on('icegatheringstatechange', (state: string) => {
+      console.log('🔌 RecvTransport icegatheringstatechange:', state)
     })
 
     console.log('✅ Receive transport created')
