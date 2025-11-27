@@ -93,9 +93,20 @@ export const useAuth = () => {
       console.log('👤 User loaded successfully:', data.username)
 
       console.log('👤 Getting session...')
-      const sessionResult = await supabase.auth.getSession()
-      console.log('👤 Session result:', sessionResult)
-      const session = sessionResult?.data?.session || null
+      let session = null
+      try {
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Session timeout')), 3000)
+          )
+        ]) as any
+        console.log('👤 Session result:', sessionResult)
+        session = sessionResult?.data?.session || null
+      } catch (sessionErr) {
+        console.error('👤 Session retrieval failed:', sessionErr)
+        // Continue without session - we have the user data
+      }
 
       const newState = { user: data as User, session, loading: false, error: null }
       console.log('👤 Setting auth state:', newState)

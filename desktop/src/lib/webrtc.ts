@@ -116,11 +116,20 @@ export class WebRTCManager {
       const stream = await this.getAudioStream()
       const audioTrack = stream.getAudioTracks()[0]
 
+      console.log('🎤 Audio track details:', {
+        kind: audioTrack.kind,
+        enabled: audioTrack.enabled,
+        muted: audioTrack.muted,
+        readyState: audioTrack.readyState,
+        label: audioTrack.label
+      })
+
       this.producer = await this.sendTransport.produce({
         track: audioTrack,
       })
 
       console.log('🎤 Producer created:', this.producer.id)
+      console.log('🎤 Producer track:', this.producer.track?.readyState)
       return this.producer
     } catch (error) {
       console.error('Failed to produce:', error)
@@ -133,6 +142,13 @@ export class WebRTCManager {
       this.producer.close()
       this.producer = null
       console.log('🎤 Producer closed')
+    }
+
+    // Stop and clear the audio stream so we get a fresh one next time
+    if (this.audioStream) {
+      this.audioStream.getTracks().forEach((track) => track.stop())
+      this.audioStream = null
+      console.log('🎤 Audio stream stopped')
     }
   }
 

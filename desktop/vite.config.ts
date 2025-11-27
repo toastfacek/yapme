@@ -12,9 +12,25 @@ export default defineConfig(({ mode }) => {
       electron({
         main: {
           entry: 'electron/main.ts',
+          vite: {
+            build: {
+              outDir: 'dist-electron',
+              rollupOptions: {
+                external: ['electron'],
+              },
+            },
+          },
         },
         preload: {
           input: 'electron/preload.ts',
+          vite: {
+            build: {
+              outDir: 'dist-electron',
+              rollupOptions: {
+                external: ['electron'],
+              },
+            },
+          },
         },
       }),
     ],

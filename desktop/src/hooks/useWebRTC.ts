@@ -2,7 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { WebRTCManager } from '@/lib/webrtc'
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'
+const SERVER_URL = import.meta.env.VITE_WS_URL || import.meta.env.VITE_SERVER_URL || 'https://yapme-production.up.railway.app'
+
+console.log('🌐 WebRTC Server URL:', SERVER_URL)
+console.log('🌐 VITE_WS_URL:', import.meta.env.VITE_WS_URL)
+console.log('🌐 VITE_SERVER_URL:', import.meta.env.VITE_SERVER_URL)
 
 interface UseWebRTCProps {
   userId: string | null
@@ -18,7 +22,9 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
 
   const webrtcManager = useRef<WebRTCManager | null>(null)
   const roomId = useRef<string | null>(null)
-  const audioElement = useRef<HTMLAudioElement | null>(null)
+  const audioContext = useRef<AudioContext | null>(null)
+  const gainNode = useRef<GainNode | null>(null)
+  const mediaStreamSource = useRef<MediaStreamAudioSourceNode | null>(null)
 
   // Initialize socket connection
   useEffect(() => {
@@ -39,7 +45,15 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
       setError(null)
 
       // Authenticate
-      newSocket.emit('authenticate', { userId })
+      console.log('🔐 Authenticating with userId:', userId)
+      newSocket.emit('authenticate', { userId }, (response: any) => {
+        if (response?.error) {
+          console.error('🔐 Authentication failed:', response.error)
+          setError(`Authentication failed: ${response.error}`)
+        } else {
+          console.log('🔐 Authentication successful:', response)
+        }
+      })
     })
 
     newSocket.on('disconnect', () => {
@@ -92,11 +106,44 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
     initWebRTC()
   }, [socket, isConnected])
 
-  // Setup audio element for playback
+  // Setup Web Audio API for playback with volume boost
+  // This runs ONCE and refs persist across re-renders
   useEffect(() => {
-    if (!audioElement.current) {
-      audioElement.current = new Audio()
-      audioElement.current.autoplay = true
+    // Only create if not already created
+    if (!audioContext.current) {
+      console.log('🔊 Creating AudioContext with 5x gain boost')
+
+      // Create AudioContext with gain node for volume amplification
+      audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      gainNode.current = audioContext.current.createGain()
+
+      // BOOST: Set gain to 5x (500%) for very loud audio
+      gainNode.current.gain.value = 5.0
+
+      gainNode.current.connect(audioContext.current.destination)
+
+      audioContext.current.resume().then(() => {
+        console.log('🔊 AudioContext resumed with 5x gain boost')
+      })
+    }
+
+    // NO CLEANUP - let refs persist for the component's entire lifetime
+    // AudioContext will only be cleaned up when component truly unmounts
+  }, [])
+
+  // FIX 3: Resume AudioContext on any click (backup for autoplay policy)
+  useEffect(() => {
+    const resumeOnInteraction = async () => {
+      if (audioContext.current?.state === 'suspended') {
+        await audioContext.current.resume()
+        console.log('🔊 AudioContext resumed on user interaction')
+      }
+    }
+
+    document.addEventListener('click', resumeOnInteraction, { once: true })
+
+    return () => {
+      document.removeEventListener('click', resumeOnInteraction)
     }
   }, [])
 
@@ -138,9 +185,44 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
           }
         )
 
-        if (stream && audioElement.current) {
-          audioElement.current.srcObject = stream
-          console.log('🔊 Playing audio stream')
+        if (stream && audioContext.current && gainNode.current) {
+          // FIX 1: Resume AudioContext if suspended (browser autoplay policy)
+          if (audioContext.current.state === 'suspended') {
+            console.log('🔊 AudioContext suspended, resuming...')
+            await audioContext.current.resume()
+            console.log('🔊 AudioContext resumed, state:', audioContext.current.state)
+          }
+
+          // CRITICAL: Store reference to prevent garbage collection
+          // Disconnect old source if exists
+          if (mediaStreamSource.current) {
+            mediaStreamSource.current.disconnect()
+          }
+
+          // Route audio ONLY through Web Audio API for volume boost
+          // DO NOT use audio element - creates conflict
+          mediaStreamSource.current = audioContext.current.createMediaStreamSource(stream)
+          mediaStreamSource.current.connect(gainNode.current)
+
+          console.log('🔊 Audio routing configured successfully')
+          console.log('🔊 Stream tracks:', stream.getTracks().map(t => ({
+            kind: t.kind,
+            enabled: t.enabled,
+            muted: t.muted,
+            readyState: t.readyState
+          })))
+          console.log('🔊 AudioContext state:', audioContext.current.state)
+          console.log('🔊 Gain node value:', gainNode.current.gain.value)
+          console.log('🔊 MediaStreamSource connected:', !!mediaStreamSource.current)
+
+          // DIAGNOSTIC: Check if audio data is flowing through the stream
+          const audioTrack = stream.getAudioTracks()[0]
+          if (audioTrack) {
+            const settings = audioTrack.getSettings()
+            console.log('🔊 Track settings:', settings)
+            console.log('🔊 Sample rate:', settings.sampleRate)
+            console.log('🔊 Channel count:', settings.channelCount)
+          }
         }
       } catch (err) {
         console.error('Failed to consume audio:', err)
@@ -150,8 +232,11 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
     const handleProducerClosed = () => {
       console.log('🔊 Producer closed')
       setIsListening(false)
-      if (audioElement.current) {
-        audioElement.current.srcObject = null
+
+      // Disconnect and clear media stream source
+      if (mediaStreamSource.current) {
+        mediaStreamSource.current.disconnect()
+        mediaStreamSource.current = null
       }
     }
 
@@ -288,6 +373,12 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
 
   // Start talking (produce audio)
   const startTalking = useCallback(async () => {
+    // FIX 2: Resume AudioContext on PTT press (user gesture)
+    if (audioContext.current?.state !== 'running') {
+      await audioContext.current?.resume()
+      console.log('🔊 AudioContext resumed on PTT press:', audioContext.current?.state)
+    }
+
     if (!webrtcManager.current || !roomId.current) {
       console.error('WebRTC not ready')
       return
@@ -320,9 +411,6 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
     return () => {
       if (webrtcManager.current) {
         webrtcManager.current.cleanup()
-      }
-      if (audioElement.current) {
-        audioElement.current.srcObject = null
       }
     }
   }, [])

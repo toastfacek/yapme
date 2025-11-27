@@ -1,6 +1,23 @@
 "use strict";
 const electron = require("electron");
 const path = require("path");
+function _interopNamespaceDefault(e) {
+  const n = Object.create(null, { [Symbol.toStringTag]: { value: "Module" } });
+  if (e) {
+    for (const k in e) {
+      if (k !== "default") {
+        const d = Object.getOwnPropertyDescriptor(e, k);
+        Object.defineProperty(n, k, d.get ? d : {
+          enumerable: true,
+          get: () => e[k]
+        });
+      }
+    }
+  }
+  n.default = e;
+  return Object.freeze(n);
+}
+const path__namespace = /* @__PURE__ */ _interopNamespaceDefault(path);
 let mainWindow = null;
 const createWindow = () => {
   mainWindow = new electron.BrowserWindow({
@@ -10,7 +27,7 @@ const createWindow = () => {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, "preload.js")
+      preload: path__namespace.join(__dirname, "preload.js")
     },
     backgroundColor: "#FFF8F0",
     titleBarStyle: "hiddenInset",
@@ -20,7 +37,7 @@ const createWindow = () => {
     mainWindow.loadURL("http://localhost:5173");
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+    mainWindow.loadFile(path__namespace.join(__dirname, "../dist/index.html"));
   }
   mainWindow.on("closed", () => {
     mainWindow = null;

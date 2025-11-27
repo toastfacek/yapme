@@ -1,0 +1,39 @@
+app = "yapme" # change to your Fly app name after `fly launch`
+
+[build]
+  dockerfile = "server/Dockerfile"
+
+[env]
+  PORT = "3001"
+  RTC_MIN_PORT = "40000"
+  RTC_MAX_PORT = "40100"
+  # Set this to your allocated Fly IPv4 (via `fly ips allocate-v4`) so mediasoup announces a reachable address
+  ANNOUNCED_IP = "REPLACE_WITH_FLY_IPV4"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 3001
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 250
+    soft_limit = 200
+
+[[services]]
+  protocol = "udp"
+  internal_port = 40000
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 40000
+    end_port = 40100
+

@@ -214,6 +214,165 @@ Current architecture handles <100 users on single Railway instance. Beyond MVP:
 
 ## Important Technical Notes
 
+### Electron Development Setup
+
+#### Critical Environment Variable Issue
+
+**⚠️ ELECTRON_RUN_AS_NODE Must Be Unset**
+
+When developing this Electron app, you MUST unset the `ELECTRON_RUN_AS_NODE` environment variable. This variable is often set by Electron-based IDEs (Atom, VSCode, etc.) and causes `require('electron')` to return a file path string instead of the Electron API object.
+
+**Symptoms:**
+- Error: `TypeError: Cannot read properties of undefined (reading 'whenReady')`
+- Electron appears to run but crashes immediately
+- `require('electron')` returns a path like `/path/to/Electron.app/Contents/MacOS/Electron`
+
+**Why This Happens:**
+When `ELECTRON_RUN_AS_NODE=1` is set, Electron runs as a Node.js process instead of the full Electron runtime. This is used internally by Electron for spawning utility processes, but breaks normal Electron apps. ([Source: GitHub Issue #8200](https://github.com/electron/electron/issues/8200))
+
+**Solution:**
+Always run the dev server with the environment variable explicitly unset:
+```bash
+unset ELECTRON_RUN_AS_NODE && npm run dev:electron
+```
+
+**How to Check:**
+```bash
+env | grep ELECTRON
+# Should return nothing, or if set, shows: ELECTRON_RUN_AS_NODE=1
+```
+
+#### Vite Plugin Electron Configuration
+
+The app uses `vite-plugin-electron` to bundle and run Electron automatically. Key configuration in [vite.config.ts](desktop/vite.config.ts):
+
+```typescript
+electron({
+  main: {
+    entry: 'electron/main.ts',
+    vite: {
+      build: {
+        outDir: 'dist-electron',
+        rollupOptions: {
+          external: ['electron'],  // CRITICAL: Don't bundle electron
+        },
+      },
+    },
+  },
+  preload: {
+    input: 'electron/preload.ts',
+    vite: {
+      build: {
+        outDir: 'dist-electron',
+        rollupOptions: {
+          external: ['electron'],  // CRITICAL: Don't bundle electron
+        },
+      },
+    },
+  },
+})
+```
+
+**Why `external: ['electron']` is Required:**
+- Electron must be loaded at runtime by the Electron process, not bundled
+- The `electron` package in `node_modules` only exports the binary path
+- The actual Electron API (`app`, `BrowserWindow`, etc.) is injected by the Electron runtime
+- Bundling electron would include the path string, not the API
+
+#### TypeScript Environment Types
+
+The app requires `vite-env.d.ts` for Vite environment variable types:
+
+```typescript
+/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_SUPABASE_URL: string
+  readonly VITE_SUPABASE_ANON_KEY: string
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}
+```
+
+Without this file, `import.meta.env.VITE_*` will cause TypeScript errors.
+
+#### Main Process Import Pattern
+
+The Electron main process uses a specific import pattern in [electron/main.ts](desktop/electron/main.ts:1-3):
+
+```typescript
+import { app, BrowserWindow, ipcMain } from 'electron'
+import type { BrowserWindow as BrowserWindowType } from 'electron'
+import * as path from 'path'
+
+let mainWindow: BrowserWindowType | null = null
+```
+
+**Why the type-only import:**
+- `BrowserWindow` is both a class (value) and a type
+- Using `BrowserWindow` as a type after destructuring causes TS error 2749
+- Separate type import solves this: `type { BrowserWindow as BrowserWindowType }`
+
+#### How Electron Execution Works
+
+1. **npm script runs:** `npm run dev:electron` → executes `vite`
+2. **Vite plugin builds:**
+   - Compiles `electron/main.ts` → `dist-electron/main.js` (CommonJS)
+   - Compiles `electron/preload.ts` → `dist-electron/preload.js` (CommonJS)
+   - Starts Vite dev server on port 5173 for React app
+3. **Vite plugin spawns Electron:**
+   - Runs `electron dist-electron/main.js`
+   - Electron loads the main process
+   - Main process creates BrowserWindow
+   - BrowserWindow loads `http://localhost:5173` (dev) or built files (prod)
+
+**The module chain:**
+```
+node_modules/.bin/electron (CLI wrapper)
+  ↓ spawns
+node_modules/electron/dist/Electron.app (Actual Electron binary)
+  ↓ executes
+dist-electron/main.js (Your main process)
+  ↓ requires 'electron' (now returns API because running IN Electron)
+  ↓ creates
+BrowserWindow → loads http://localhost:5173 (React app)
+```
+
+#### Common Pitfalls
+
+1. **Running with ELECTRON_RUN_AS_NODE=1:** Causes `require('electron')` to fail
+2. **Bundling electron:** Causes runtime errors, must use `external: ['electron']`
+3. **Missing vite-env.d.ts:** Causes TypeScript errors for `import.meta.env`
+4. **Wrong module format:** Main process MUST be CommonJS (configured in `tsconfig.node.json`)
+5. **Running from Electron-based IDE:** May set ELECTRON_RUN_AS_NODE automatically
+
+#### Debugging Electron
+
+**Check if Electron is actually running:**
+```bash
+ps aux | grep Electron
+# Should show Electron.app process if running
+```
+
+**Test electron binary directly:**
+```bash
+unset ELECTRON_RUN_AS_NODE && ./node_modules/.bin/electron dist-electron/main.js
+```
+
+**Check build output:**
+```bash
+cat dist-electron/main.js | head -n 10
+# Should show: const electron = require("electron");
+# NOT bundled electron code
+```
+
+**Enable debug logging:**
+```bash
+DEBUG=vite-plugin-electron:* npm run dev:electron
+```
+
 ### Design System (Tailwind CSS)
 
 The app uses a **retro-digital aesthetic** inspired by Teenage Engineering devices:
@@ -258,6 +417,35 @@ The app uses a **retro-digital aesthetic** inspired by Teenage Engineering devic
 ```
 
 ### Auth State Management
+
+#### Preventing Auth Loading Hangs
+
+The auth system uses Supabase's `getSession()` which can sometimes hang or timeout, causing the app to be stuck on the loading screen. To prevent this, [useAuth.ts](desktop/src/hooks/useAuth.ts:95-109) wraps session retrieval with a timeout:
+
+```typescript
+let session = null
+try {
+  const sessionResult = await Promise.race([
+    supabase.auth.getSession(),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Session timeout')), 3000)
+    )
+  ]) as any
+  session = sessionResult?.data?.session || null
+} catch (sessionErr) {
+  console.error('👤 Session retrieval failed:', sessionErr)
+  // Continue without session - we have the user data
+}
+```
+
+**Why This is Needed:**
+- Network issues or Supabase outages can cause `getSession()` to hang indefinitely
+- Without timeout, React component stays in loading state forever
+- User data is already loaded from the database, so we can continue without session
+- Session will be reestablished on next auth state change
+
+#### Refreshing User State
+
 After username creation or any database operation that affects auth state, use `refreshUser()` instead of `window.location.reload()`:
 
 ```typescript
@@ -297,6 +485,84 @@ const friendshipsChannel = supabase
     loadFriends()  // Reload when friendships change
   })
   .subscribe()
+```
+
+## Troubleshooting Guide
+
+### Electron Won't Start
+
+**Error:** `TypeError: Cannot read properties of undefined (reading 'whenReady')`
+
+**Solution:**
+```bash
+# Check if ELECTRON_RUN_AS_NODE is set
+env | grep ELECTRON
+
+# If it shows ELECTRON_RUN_AS_NODE=1, unset it:
+unset ELECTRON_RUN_AS_NODE && npm run dev:electron
+```
+
+**Permanent fix:** Add to your shell profile (~/.zshrc or ~/.bashrc):
+```bash
+unset ELECTRON_RUN_AS_NODE
+```
+
+### App Stuck on Loading Screen
+
+**Symptoms:**
+- Console shows "👤 User loaded successfully" but never shows "👤 Setting auth state"
+- App displays "Loading YapMe..." indefinitely
+
+**Causes:**
+- Supabase `getSession()` call is hanging
+- Network connectivity issues
+- Supabase service outage
+
+**Solution:**
+The app now has built-in timeout protection (3 seconds). If still occurring:
+1. Check network connection
+2. Check Supabase status: https://status.supabase.com
+3. Check browser console for specific errors
+4. Try clearing browser cache and restarting
+
+### TypeScript Errors for import.meta.env
+
+**Error:** `Property 'env' does not exist on type 'ImportMeta'`
+
+**Solution:** Ensure [desktop/src/vite-env.d.ts](desktop/src/vite-env.d.ts) exists with proper type definitions.
+
+### Build Output Shows Bundled Electron Code
+
+**Symptom:** `dist-electron/main.js` is huge (>100KB) or contains Electron source code
+
+**Solution:** Check [vite.config.ts](desktop/vite.config.ts:18-20) includes `external: ['electron']` in rollupOptions.
+
+### Port 5173 Already in Use
+
+**Error:** `Port 5173 is already in use`
+
+**Solution:**
+```bash
+# Kill process on port 5173
+lsof -ti:5173 | xargs kill -9
+
+# Or use a different port in vite.config.ts
+```
+
+### Two Browser Sessions Can't Connect
+
+**Possible Causes:**
+1. Server not running (check Railway deployment)
+2. WebSocket connection blocked by network/firewall
+3. CORS issues with server
+
+**Debug Steps:**
+```bash
+# Check if server is reachable
+curl https://yapme-production.up.railway.app/health
+
+# Check WebSocket in browser console
+# Should see Socket.io connection logs
 ```
 
 ## Product Philosophy

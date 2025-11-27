@@ -1,7 +1,8 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
-import path from 'path'
+import type { BrowserWindow as BrowserWindowType } from 'electron'
+import * as path from 'path'
 
-let mainWindow: BrowserWindow | null = null
+let mainWindow: BrowserWindowType | null = null
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
