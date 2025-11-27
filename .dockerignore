@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+dist
+.git
+desktop
+docs
+scripts
+*.log
+*.md
+plan.md

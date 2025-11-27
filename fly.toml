@@ -1,7 +1,7 @@
 app = "yapme" # change to your Fly app name after `fly launch`
 
 [build]
-  dockerfile = "server/Dockerfile"
+  dockerfile = "Dockerfile"
 
 [env]
   PORT = "3001"
@@ -36,4 +36,3 @@ app = "yapme" # change to your Fly app name after `fly launch`
   [[services.ports]]
     port = 40000
     end_port = 40100
-
