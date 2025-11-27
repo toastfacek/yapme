@@ -7,8 +7,8 @@ app = "yapme" # change to your Fly app name after `fly launch`
   PORT = "3001"
   RTC_MIN_PORT = "40000"
   RTC_MAX_PORT = "40100"
-  # Set this to your allocated Fly IPv4 (via `fly ips allocate-v4`) so mediasoup announces a reachable address
-  ANNOUNCED_IP = "REPLACE_WITH_FLY_IPV4"
+  # Fly.io dedicated IPv4 for WebRTC ICE candidates
+  ANNOUNCED_IP = "168.220.91.161"
 
 [[services]]
   protocol = "tcp"
