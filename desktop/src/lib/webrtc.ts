@@ -174,8 +174,12 @@ export class WebRTCManager {
         rtpParameters,
       })
 
+      // Resume the consumer to start receiving audio
+      // (mediasoup-client consumers start paused by default)
+      await consumer.resume()
+
       const stream = new MediaStream([consumer.track])
-      console.log('🔊 Consumer created, playing audio')
+      console.log('🔊 Consumer created and resumed, playing audio')
 
       return stream
     } catch (error) {

@@ -28,8 +28,8 @@ YapMe is a desktop application that brings back the simplicity of AOL Instant Me
 
 ## Current Implementation Status
 
-**✅ Phases 0-6 Complete** - Full UI, auth, friend management working
-**🔄 Phase 7 Next** - WebRTC audio streaming (core PTT functionality)
+**✅ Phases 0-7 Complete** - Full UI, auth, friend management, and WebRTC audio streaming working
+**🔄 Phase 8 Next** - Polish and optimization
 
 ### What's Working
 - Complete Electron + React desktop app
@@ -42,12 +42,16 @@ YapMe is a desktop application that brings back the simplicity of AOL Instant Me
 - PTT button UI with keyboard/mouse support
 - Beautiful retro-digital design system (Teenage Engineering inspired)
 - Railway server deployed and running
-
-### What's Next
 - Mediasoup WebRTC server implementation
 - Audio capture on PTT press
 - Audio streaming between users
-- Audio playback
+- Audio playback (consumer resume fix applied)
+
+### What's Next
+- E2E encryption (Phase 2)
+- Voice messages (Phase 2)
+- Performance optimization
+- Error handling improvements
 
 ## Code Structure (Current)
 
@@ -564,6 +568,38 @@ curl https://yapme-production.up.railway.app/health
 # Check WebSocket in browser console
 # Should see Socket.io connection logs
 ```
+
+### WebRTC Audio Not Playing (PTT Receiving but No Sound)
+
+**Symptoms:**
+- PTT shows "RECEIVING" indicator correctly
+- Microphone is activated (macOS orange indicator)
+- Consumer created successfully in logs
+- AudioContext is running
+- Stream tracks show enabled: true, muted: false, readyState: "live"
+- But no audio is actually heard
+
+**Root Cause:**
+In mediasoup-client, consumers start paused by default on the client side. Even though the server creates the consumer with `paused: false`, the client-side consumer track remains paused until explicitly resumed.
+
+**Solution:**
+The `consume()` method in [desktop/src/lib/webrtc.ts](desktop/src/lib/webrtc.ts) must call `consumer.resume()` after creating the consumer:
+
+```typescript
+const consumer = await this.recvTransport.consume({
+  id,
+  producerId,
+  kind,
+  rtpParameters,
+})
+
+// Resume the consumer to start receiving audio
+await consumer.resume()
+
+const stream = new MediaStream([consumer.track])
+```
+
+**Note:** This was fixed in the codebase - consumers are now automatically resumed after creation.
 
 ## Product Philosophy
 

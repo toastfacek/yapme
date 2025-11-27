@@ -220,6 +220,23 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
             htmlAudioEl.current.playsInline = true
             htmlAudioEl.current.autoplay = true
             document.body.appendChild(htmlAudioEl.current)
+
+            // Debug listeners
+            htmlAudioEl.current.addEventListener('playing', () => {
+              console.log('🔊 HTMLAudioElement event: playing')
+            })
+            htmlAudioEl.current.addEventListener('pause', () => {
+              console.log('🔊 HTMLAudioElement event: pause')
+            })
+            htmlAudioEl.current.addEventListener('ended', () => {
+              console.log('🔊 HTMLAudioElement event: ended')
+            })
+            htmlAudioEl.current.addEventListener('error', (e) => {
+              console.error('🔊 HTMLAudioElement error:', e)
+            })
+
+            // expose for manual debugging
+            ;(window as any).__yap_audio_el = htmlAudioEl.current
           }
           htmlAudioEl.current.srcObject = stream
           htmlAudioEl.current.muted = false
