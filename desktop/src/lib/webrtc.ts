@@ -162,6 +162,14 @@ export class WebRTCManager {
     }
   }
 
+  getRecvTransport(): Transport | null {
+    return this.recvTransport
+  }
+
+  hasRecvTransport(): boolean {
+    return this.recvTransport !== null
+  }
+
   cleanup(): void {
     this.closeProducer()
 

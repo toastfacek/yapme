@@ -7,7 +7,7 @@ export interface User {
   updated_at: string
 }
 
-export type UserStatus = 'available' | 'offline'
+export type UserStatus = 'active' | 'away' | 'dnd' | 'offline'
 
 // Friendship types
 export interface Friendship {

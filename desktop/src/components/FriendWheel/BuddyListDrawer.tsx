@@ -184,7 +184,12 @@ export const BuddyListDrawer: React.FC<BuddyListDrawerProps> = ({
                 }}
                 className="w-full p-2 flex items-center gap-2 hover:bg-concrete rounded mb-1 transition-colors border border-transparent hover:border-ink"
               >
-                <div className={`w-2 h-2 rounded-full ${friend.status === 'available' ? 'bg-led shadow-[0_0_4px_#00FF41]' : 'bg-concrete'}`} />
+                <div className={`w-2 h-2 rounded-full ${
+                  friend.status === 'active' ? 'bg-led shadow-[0_0_4px_#00FF41]' :
+                  friend.status === 'away' ? 'bg-yellow-500' :
+                  friend.status === 'dnd' ? 'bg-red-500' :
+                  'bg-concrete'
+                }`} />
                 <span className="font-mono text-sm">{friend.username}</span>
               </button>
             ))

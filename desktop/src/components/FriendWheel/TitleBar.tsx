@@ -4,9 +4,11 @@ import type { User } from '../../types';
 interface TitleBarProps {
   currentUser: User;
   onSignOut: () => void;
+  missedCount?: number;
+  onShowHistory?: () => void;
 }
 
-export const TitleBar: React.FC<TitleBarProps> = ({ currentUser, onSignOut }) => {
+export const TitleBar: React.FC<TitleBarProps> = ({ currentUser, onSignOut, missedCount = 0, onShowHistory }) => {
   return (
     <div className="titlebar-drag h-8 flex items-center px-2 bg-bone border-b-2 border-ink fixed top-0 w-full z-50">
       <div className="flex gap-1.5 no-drag group mr-4">
@@ -17,13 +19,29 @@ export const TitleBar: React.FC<TitleBarProps> = ({ currentUser, onSignOut }) =>
             YAPME - {currentUser.username}
          </span>
       </div>
-      <button
-        onClick={onSignOut}
-        className="no-drag text-xs px-2 py-1 hover:bg-concrete transition-colors"
-        title="Sign out"
-      >
-        ↪
-      </button>
+      <div className="flex items-center gap-2">
+        {onShowHistory && (
+          <button
+            onClick={onShowHistory}
+            className="no-drag text-xs px-2 py-1 hover:bg-concrete transition-colors relative"
+            title="Message history"
+          >
+            📨
+            {missedCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                {missedCount > 9 ? '9+' : missedCount}
+              </span>
+            )}
+          </button>
+        )}
+        <button
+          onClick={onSignOut}
+          className="no-drag text-xs px-2 py-1 hover:bg-concrete transition-colors"
+          title="Sign out"
+        >
+          ↪
+        </button>
+      </div>
     </div>
   );
 };

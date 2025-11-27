@@ -196,7 +196,7 @@ io.on('connection', (socket) => {
   })
 
   // Produce audio
-  socket.on('produce', async ({ roomId, transportId, kind, rtpParameters }, callback) => {
+  socket.on('produce', async ({ roomId, transportId, kind, rtpParameters, targetUserId }, callback) => {
     try {
       const userId = socket.data.userId
       if (!userId) {
@@ -208,14 +208,20 @@ io.on('connection', (socket) => {
 
       callback({ id: producer.id })
 
-      // Notify other peer that producer is ready
-      const peers = getRoomPeers(roomId)
-      const otherUserId = peers.find((id) => id !== userId)
-      if (otherUserId) {
-        io.to(`user:${otherUserId}`).emit('newProducer', {
+      // Get sender username for display
+      // TODO: Cache this or get from database
+      const senderUsername = userId // For now, use userId. Could fetch username from DB
+
+      // Notify target recipient (regardless of their selection)
+      // They will receive audio if they're active/away
+      if (targetUserId) {
+        io.to(`user:${targetUserId}`).emit('producer-available', {
           producerId: producer.id,
-          userId,
+          senderId: userId,
+          senderUsername,
+          roomId, // Include roomId so recipient can consume
         })
+        console.log(`📢 Producer ${producer.id} from ${userId} routed to ${targetUserId}`)
       }
     } catch (error: any) {
       console.error('produce error:', error)

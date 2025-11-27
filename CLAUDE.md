@@ -28,8 +28,8 @@ YapMe is a desktop application that brings back the simplicity of AOL Instant Me
 
 ## Current Implementation Status
 
-**✅ Phases 0-7 Complete** - Full UI, auth, friend management, and WebRTC audio streaming working
-**🔄 Phase 8 Next** - Polish and optimization
+**✅ Phases 0-8 Complete** - Full UI, auth, friend management, WebRTC audio streaming, and UX architecture overhaul
+**🔄 Phase 9 Next** - Polish and optimization
 
 ### What's Working
 - Complete Electron + React desktop app
@@ -41,11 +41,15 @@ YapMe is a desktop application that brings back the simplicity of AOL Instant Me
 - Expandable buddy list drawer
 - PTT button UI with keyboard/mouse support
 - Beautiful retro-digital design system (Teenage Engineering inspired)
-- Railway server deployed and running
+- Fly.io server deployed and running
 - Mediasoup WebRTC server implementation
 - Audio capture on PTT press
 - Audio streaming between users
 - Audio playback (consumer resume fix applied)
+- **Status system:** Active/Away/DND/Offline with auto-away (5min idle)
+- **Receive All, Select to Send:** Hear from any friend, select who to send to
+- **Message history:** Track recent yaps with duration and delivery status
+- **Receiving indicator:** Shows who is talking with quick-reply functionality
 
 ### What's Next
 - E2E encryption (Phase 2)
@@ -68,14 +72,18 @@ desktop/
 │   │   │   └── UsernameSetup.tsx # ✅ Username selection (Tailwind)
 │   │   ├── FriendWheel/
 │   │   │   ├── Avatar.tsx       # ✅ User avatar with technical overlays
-│   │   │   ├── TitleBar.tsx     # ✅ App header with username
+│   │   │   ├── TitleBar.tsx     # ✅ App header with username & message history
 │   │   │   ├── FriendWheel.tsx  # ✅ Main walkie-talkie interface
+│   │   │   ├── StatusPicker.tsx # ✅ Status dropdown (Active/Away/DND/Offline)
+│   │   │   ├── MessageHistory.tsx # ✅ Message history modal
 │   │   │   └── BuddyListDrawer.tsx # ✅ Expandable friend management
 │   │   └── _archived/           # 📦 Old BuddyList/PTT components
 │   ├── hooks/
 │   │   ├── useAuth.ts           # ✅ Authentication & session management
 │   │   ├── useFriends.ts        # ✅ Friend list & realtime updates
-│   │   └── useWebRTC.ts         # 🔄 WebRTC audio (Phase 7)
+│   │   ├── usePresence.ts       # ✅ Status management with idle detection
+│   │   ├── useMessages.ts       # ✅ Message history tracking
+│   │   └── useWebRTC.ts         # ✅ WebRTC audio with receive-all support
 │   ├── lib/
 │   │   ├── supabase.ts          # ✅ Supabase client setup
 │   │   └── webrtc.ts            # 🔄 WebRTC utilities (Phase 7)
@@ -109,9 +117,9 @@ server/
 ## Database Schema
 
 Core tables in Supabase:
-- **users:** Auth-managed, includes status, public_key for E2E
-- **friendships:** Bidirectional friend relationships (pending/accepted/blocked)
-- **voice_messages:** Ephemeral, auto-expire after 24h
+- **users:** Auth-managed, includes status (`active`|`away`|`dnd`|`offline`), public_key for E2E
+- **friendships:** Bidirectional friend relationships (pending/accepted/declined)
+- **messages:** PTT message metadata (duration, delivery status, timestamps)
 - **presence:** Real-time presence tracking (in_call_with, socket_id)
 
 All tables use Row Level Security (RLS) policies for privacy.
@@ -144,20 +152,36 @@ cd desktop && npm run build:electron  # macOS .dmg
 ## Key Implementation Details
 
 ### Push-to-Talk Mechanics (Current)
-- ✅ Scroll friend wheel to select target
+- ✅ Scroll friend wheel to select **who to send to**
 - ✅ Hold spacebar (or click button) to transmit
 - ✅ Visual button animations with "ON AIR" indicator
 - ✅ Audio visualizer with matrix-green bars
-- ✅ Button disabled when friend is offline or WebRTC not connected
-- ✅ Listening indicator when friend talks
-- 🔄 Audio capture and streaming (Phase 7)
+- ✅ Button disabled when friend is offline/DND or WebRTC not connected
+- ✅ **Receive from ANY friend** (no selection needed)
+- ✅ **Receiving indicator** shows who is talking with quick-reply
+- ✅ Audio capture and streaming
 - 🔄 If recipient unavailable, record voice message (Phase 2)
 
-### Status States (MVP)
-- 🟢 **Available:** Can receive live calls (current implementation)
-- ⚫ **Offline:** Cannot contact (current implementation)
-- 🔮 **Focus/DND:** Phase 2 features
-- 🔮 **In Call indicator:** Phase 2 feature
+### Status System (Implemented)
+- 🟢 **Active:** Can send and receive, manually set or auto on app focus
+- 🟡 **Away:** Auto-set after 5min idle, can still receive
+- 🔴 **DND (Do Not Disturb):** Manual only, cannot receive messages
+- ⚫ **Offline:** Auto-set when app closes, cannot receive
+
+**Status Behavior:**
+- Auto-away triggers after 5 minutes of inactivity (mouse/keyboard)
+- Window focus restores Active status if Away
+- DND is always manual (user must explicitly set)
+- Offline is automatic on app close
+- Status persists in database and syncs via Supabase Realtime
+
+### Message History (Implemented)
+- ✅ Tracks all PTT messages with duration and timestamp
+- ✅ Shows delivery status: `sent`, `delivered`, `missed`
+- ✅ Message history modal accessible from title bar
+- ✅ Missed message badge shows count
+- ✅ Quick-reply: Click message to switch wheel to that friend
+- ✅ Metadata only (no audio storage)
 
 ### Voice Message Behavior (Phase 2)
 - 🔮 Maximum 60 seconds per message
@@ -165,12 +189,20 @@ cd desktop && npm run build:electron  # macOS .dmg
 - 🔮 Expire after 24 hours if unheard
 - 🔮 Encrypted with recipient's public key
 
-### WebRTC Signaling Flow (Phase 7 - Next)
-1. 🔄 Check recipient availability via presence
-2. 🔄 Create Mediasoup transport on server
-3. 🔄 Signal recipient through Socket.io WebSocket
-4. 🔄 Establish audio stream via Mediasoup SFU
-5. 🔄 Opus codec @ 32kbps for audio
+### WebRTC Signaling Flow (Implemented)
+1. ✅ User selects friend on wheel (determines **who to send to**)
+2. ✅ User presses PTT → creates producer on send transport
+3. ✅ Server routes audio to recipient **regardless of their selection**
+4. ✅ Recipient receives `producer-available` event with sender info
+5. ✅ Recipient auto-joins room and creates receive transport if needed
+6. ✅ Recipient consumes producer → audio plays
+7. ✅ Opus codec @ 32kbps for audio
+
+**Key Architecture Change:**
+- **Old:** Both users must select each other to communicate
+- **New:** Receive from anyone, select who to send to (like text messaging)
+- Server routes based on sender's selection, not recipient's
+- Recipient always hears if they're Active/Away (not DND/Offline)
 
 ### E2E Encryption (Phase 2)
 - 🔮 Generate RSA-2048 keypair on first login

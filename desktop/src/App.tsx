@@ -1,16 +1,22 @@
 import React, { useState } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useFriends } from './hooks/useFriends'
+import { usePresence } from './hooks/usePresence'
+import { useMessages } from './hooks/useMessages'
 import { useWebRTC } from './hooks/useWebRTC'
 import { LoginScreen } from './components/Auth/LoginScreen'
 import { UsernameSetup } from './components/Auth/UsernameSetup'
 import { TitleBar } from './components/FriendWheel/TitleBar'
 import { FriendWheel } from './components/FriendWheel/FriendWheel'
+import { MessageHistory } from './components/FriendWheel/MessageHistory'
 
 function App() {
   const { user, session, loading: authLoading, signOut, refreshUser } = useAuth()
   const { friends, loading: friendsLoading } = useFriends(user?.id || null)
+  const { status: userStatus, setStatus: setUserStatus } = usePresence(user?.id || null)
+  const { messages, createMessage, getMissedCount } = useMessages(user?.id || null)
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null)
+  const [showMessageHistory, setShowMessageHistory] = useState(false)
 
   console.log('🎯 App render - authLoading:', authLoading, 'user:', user?.username, 'session:', !!session)
 
@@ -19,12 +25,14 @@ function App() {
     isConnected: isWebRTCConnected,
     isTalking,
     isListening,
+    receivingFrom,
     error: webrtcError,
     startTalking,
     stopTalking,
   } = useWebRTC({
     userId: user?.id || null,
     selectedFriendId,
+    onMessageCreated: createMessage,
   })
 
   // PTT handlers
@@ -69,18 +77,23 @@ function App() {
       <TitleBar
         currentUser={user!}
         onSignOut={signOut}
+        missedCount={getMissedCount()}
+        onShowHistory={() => setShowMessageHistory(true)}
       />
 
       <main className="flex-1 overflow-hidden relative mt-8">
         <FriendWheel
           friends={friends}
           currentUser={user!}
+          currentUserStatus={userStatus}
+          onStatusChange={setUserStatus}
           selectedFriendId={selectedFriendId}
           onSelectFriend={setSelectedFriendId}
           onStartTalking={handlePTTStart}
           onStopTalking={handlePTTEnd}
           isTalking={isTalking}
           isListening={isListening}
+          receivingFrom={receivingFrom}
           isWebRTCConnected={isWebRTCConnected}
         />
       </main>
@@ -92,7 +105,16 @@ function App() {
         </div>
       )}
 
-      {/* Listening Indicator - shown in FriendWheel now */}
+      {/* Message History Modal */}
+      {showMessageHistory && (
+        <MessageHistory
+          messages={messages}
+          friends={friends}
+          currentUserId={user!.id}
+          onSelectFriend={setSelectedFriendId}
+          onClose={() => setShowMessageHistory(false)}
+        />
+      )}
     </div>
   )
 }

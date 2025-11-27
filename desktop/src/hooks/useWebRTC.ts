@@ -7,13 +7,15 @@ const SERVER_URL = import.meta.env.VITE_WS_URL || import.meta.env.VITE_SERVER_UR
 interface UseWebRTCProps {
   userId: string | null
   selectedFriendId: string | null
+  onMessageCreated?: (recipientId: string, durationMs: number, status: 'sent' | 'delivered' | 'missed') => void
 }
 
-export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
+export const useWebRTC = ({ userId, selectedFriendId, onMessageCreated }: UseWebRTCProps) => {
   const [socket, setSocket] = useState<Socket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [isTalking, setIsTalking] = useState(false)
   const [isListening, setIsListening] = useState(false)
+  const [receivingFrom, setReceivingFrom] = useState<{ userId: string; username: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const webrtcManager = useRef<WebRTCManager | null>(null)
@@ -22,6 +24,8 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
   const gainNode = useRef<GainNode | null>(null)
   const mediaStreamSource = useRef<MediaStreamAudioSourceNode | null>(null)
   const htmlAudioEl = useRef<HTMLAudioElement | null>(null)
+  const pttStartTimeRef = useRef<number | null>(null)
+  const onMessageCreatedRef = useRef<((recipientId: string, durationMs: number, status: 'sent' | 'delivered' | 'missed') => void) | null>(null)
 
   // Initialize socket connection
   useEffect(() => {
@@ -126,27 +130,90 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
     return () => document.removeEventListener('click', resumeOnInteraction)
   }, [])
 
-  // Listen for incoming audio (newProducer event)
+  // Listen for incoming audio from ANY friend (producer-available event)
   useEffect(() => {
-    if (!socket) return
+    if (!socket || !webrtcManager.current || !userId) return
 
-    const handleNewProducer = async ({ producerId }: { producerId: string }) => {
+    const handleProducerAvailable = async ({ 
+      producerId, 
+      senderId, 
+      senderUsername, 
+      roomId: producerRoomId 
+    }: { 
+      producerId: string
+      senderId: string
+      senderUsername: string
+      roomId: string
+    }) => {
+      // Join the room if we're not already in it
+      const recvRoomId = producerRoomId
+      
+      // Check if we need to join this room and create receive transport
+      // (We might already be in a different room with another friend)
+      socket.emit('joinRoom', {
+        roomId: recvRoomId,
+        targetUserId: senderId,
+      })
+
+      // Ensure we have a receive transport for this room
+      // Create receive transport on-demand if needed
+      socket.emit(
+        'createWebRtcTransport',
+        { roomId: recvRoomId, direction: 'recv' },
+        async (response: any) => {
+          if (response.error) {
+            console.error('Failed to create recv transport:', response.error)
+            return
+          }
+
+          // Create or reuse receive transport
+          await webrtcManager.current!.createRecvTransport(
+            response.params,
+            async (dtlsParameters) => {
+              return new Promise((resolve, reject) => {
+                socket!.emit(
+                  'connectTransport',
+                  {
+                    roomId: recvRoomId,
+                    transportId: response.params.id,
+                    dtlsParameters,
+                  },
+                  (connectResponse: any) => {
+                    if (connectResponse.error) {
+                      reject(new Error(connectResponse.error))
+                    } else {
+                      resolve(connectResponse)
+                    }
+                  }
+                )
+              })
+            }
+          )
+
+          // Now consume the producer
+          consumeProducer(producerId, recvRoomId, senderId, senderUsername)
+        }
+      )
+    }
+
+    const consumeProducer = async (
+      producerId: string,
+      roomIdForConsume: string,
+      senderId: string,
+      senderUsername: string
+    ) => {
       setIsListening(true)
-
-      if (!webrtcManager.current || !roomId.current) {
-        console.error('WebRTC manager or room not ready')
-        return
-      }
+      setReceivingFrom({ userId: senderId, username: senderUsername })
 
       try {
-        const stream = await webrtcManager.current.consume(
+        const stream = await webrtcManager.current!.consume(
           producerId,
           async (pId, rtpCapabilities) => {
             return new Promise((resolve, reject) => {
-              socket.emit(
+              socket!.emit(
                 'consume',
                 {
-                  roomId: roomId.current,
+                  roomId: roomIdForConsume,
                   producerId: pId,
                   rtpCapabilities,
                 },
@@ -195,23 +262,27 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
       }
     }
 
-    const handleProducerClosed = () => {
-      setIsListening(false)
+    const handleProducerClosed = ({ userId: closedUserId }: { userId: string }) => {
+      // Only stop listening if it's from the same sender
+      if (receivingFrom?.userId === closedUserId) {
+        setIsListening(false)
+        setReceivingFrom(null)
 
-      if (mediaStreamSource.current) {
-        mediaStreamSource.current.disconnect()
-        mediaStreamSource.current = null
+        if (mediaStreamSource.current) {
+          mediaStreamSource.current.disconnect()
+          mediaStreamSource.current = null
+        }
       }
     }
 
-    socket.on('newProducer', handleNewProducer)
+    socket.on('producer-available', handleProducerAvailable)
     socket.on('producerClosed', handleProducerClosed)
 
     return () => {
-      socket.off('newProducer', handleNewProducer)
+      socket.off('producer-available', handleProducerAvailable)
       socket.off('producerClosed', handleProducerClosed)
     }
-  }, [socket])
+  }, [socket, userId, receivingFrom])
 
   // Join room when friend is selected
   useEffect(() => {
@@ -260,13 +331,14 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
               },
               async (kind, rtpParameters) => {
                 return new Promise((resolve, reject) => {
-                  socket.emit(
+                    socket.emit(
                     'produce',
                     {
                       roomId: newRoomId,
                       transportId: response.params.id,
                       kind,
                       rtpParameters,
+                      targetUserId: selectedFriendId, // Include target so server knows who to route to
                     },
                     (produceResponse: any) => {
                       if (produceResponse.error) {
@@ -345,6 +417,7 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
     try {
       await webrtcManager.current.produce()
       setIsTalking(true)
+      pttStartTimeRef.current = Date.now() // Track start time
     } catch (err: any) {
       console.error('Failed to start talking:', err)
       setError(err.message)
@@ -357,10 +430,18 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
       return
     }
 
+    // Calculate duration and create message record
+    if (pttStartTimeRef.current && selectedFriendId && onMessageCreated) {
+      const durationMs = Date.now() - pttStartTimeRef.current
+      // For now, mark as 'sent'. We can update to 'delivered' if recipient consumes
+      onMessageCreated(selectedFriendId, durationMs, 'sent')
+    }
+
     webrtcManager.current.closeProducer()
     socket.emit('closeProducer', { roomId: roomId.current })
     setIsTalking(false)
-  }, [socket])
+    pttStartTimeRef.current = null
+  }, [socket, selectedFriendId, onMessageCreated])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -375,6 +456,7 @@ export const useWebRTC = ({ userId, selectedFriendId }: UseWebRTCProps) => {
     isConnected,
     isTalking,
     isListening,
+    receivingFrom,
     error,
     startTalking,
     stopTalking,

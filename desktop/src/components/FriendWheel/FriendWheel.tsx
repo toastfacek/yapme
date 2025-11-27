@@ -1,29 +1,36 @@
 import React, { useRef, useEffect, useState } from 'react';
-import type { User, Friend } from '../../types';
+import type { User, Friend, UserStatus } from '../../types';
 import { Avatar } from './Avatar';
 import { BuddyListDrawer } from './BuddyListDrawer';
+import { StatusPicker } from './StatusPicker';
 
 interface FriendWheelProps {
   friends: Friend[];
   currentUser: User;
+  currentUserStatus: UserStatus;
+  onStatusChange: (status: UserStatus) => void;
   selectedFriendId: string | null;
   onSelectFriend: (id: string) => void;
   onStartTalking: () => void;
   onStopTalking: () => void;
   isTalking: boolean;
   isListening: boolean;
+  receivingFrom: { userId: string; username: string } | null;
   isWebRTCConnected: boolean;
 }
 
 export const FriendWheel: React.FC<FriendWheelProps> = ({
   friends,
   currentUser,
+  currentUserStatus,
+  onStatusChange,
   selectedFriendId,
   onSelectFriend,
   onStartTalking,
   onStopTalking,
   isTalking,
   isListening,
+  receivingFrom,
   isWebRTCConnected
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -42,21 +49,43 @@ export const FriendWheel: React.FC<FriendWheelProps> = ({
   const ITEM_HEIGHT = 48; // Compact height for wheel items
 
   // Map friends to wheel format
+  const getStatusLabel = (status: UserStatus): string => {
+    switch (status) {
+      case 'active': return 'Active'
+      case 'away': return 'Away'
+      case 'dnd': return 'DND'
+      case 'offline': return 'Offline'
+      default: return 'Offline'
+    }
+  }
+
+  const getStatusColor = (status: UserStatus): string => {
+    switch (status) {
+      case 'active': return 'bg-led'
+      case 'away': return 'bg-yellow-500'
+      case 'dnd': return 'bg-red-500'
+      case 'offline': return 'bg-concrete'
+      default: return 'bg-concrete'
+    }
+  }
+
   const wheelFriends = friends.map(f => ({
     id: f.id,
     name: f.username,
     avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${f.username}`,
-    status: f.status === 'available' ? 'Available' : 'Offline',
-    isOnline: f.status === 'available',
+    status: getStatusLabel(f.status as UserStatus),
+    statusValue: f.status as UserStatus,
+    isOnline: f.status === 'active' || f.status === 'away',
   }));
 
   const activeFriend = wheelFriends[activeIndex] || wheelFriends[0];
   const selectedFriend = friends.find(f => f.id === selectedFriendId);
 
-  // Check if PTT is enabled
+  // Check if PTT is enabled (can send to active/away friends)
   const isPTTEnabled = !!selectedFriend &&
-                       selectedFriend.status === 'available' &&
-                       isWebRTCConnected;
+                       (selectedFriend.status === 'active' || selectedFriend.status === 'away') &&
+                       isWebRTCConnected &&
+                       (currentUserStatus === 'active' || currentUserStatus === 'away'); // Can only send if active/away
 
   // --- Wheel Logic ---
   const handleScroll = () => {
@@ -210,7 +239,7 @@ export const FriendWheel: React.FC<FriendWheelProps> = ({
                  </p>
              </div>
              {activeFriend?.isOnline && (
-                <div className="w-2 h-2 rounded-full bg-led animate-pulse border border-ink/50 shadow-[0_0_4px_#00FF41]"></div>
+                <div className={`w-2 h-2 rounded-full ${getStatusColor(activeFriend.statusValue)} animate-pulse border border-ink/50 shadow-[0_0_4px_${activeFriend.statusValue === 'active' ? '#00FF41' : '#fbbf24'}]`}></div>
              )}
          </div>
 
@@ -272,9 +301,24 @@ export const FriendWheel: React.FC<FriendWheelProps> = ({
           </div>
 
           {/* Listening Indicator */}
-          {isListening && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-led text-ink px-3 py-1 rounded border border-ink text-xs font-bold animate-pulse">
-              🔊 RECEIVING
+          {isListening && receivingFrom && (
+            <div 
+              className="absolute top-4 left-1/2 -translate-x-1/2 bg-led text-ink px-3 py-1 rounded border border-ink text-xs font-bold animate-pulse cursor-pointer hover:bg-signal transition-colors"
+              onClick={() => {
+                // Quick reply: switch wheel to the sender
+                const senderFriend = friends.find(f => f.id === receivingFrom.userId)
+                if (senderFriend) {
+                  onSelectFriend(senderFriend.id)
+                  // Scroll to friend in wheel
+                  const friendIndex = wheelFriends.findIndex(f => f.id === senderFriend.id)
+                  if (scrollRef.current && friendIndex >= 0) {
+                    scrollRef.current.scrollTo({ top: friendIndex * ITEM_HEIGHT, behavior: 'smooth' })
+                  }
+                }
+              }}
+              title="Click to reply"
+            >
+              🔊 RECEIVING FROM {receivingFrom.username.toUpperCase()}
             </div>
           )}
 
@@ -314,27 +358,10 @@ export const FriendWheel: React.FC<FriendWheelProps> = ({
               <span className="text-[10px] font-bold uppercase">ME</span>
           </div>
 
-          <div className="flex-1 mx-3 h-6 bg-bone border border-ink flex items-center px-2 shadow-pressed">
-              {editingStatus ? (
-                 <form onSubmit={handleStatusSubmit} className="w-full">
-                     <input
-                         autoFocus
-                         type="text"
-                         value={statusText}
-                         onChange={(e) => setStatusText(e.target.value)}
-                         onBlur={handleStatusSubmit}
-                         className="w-full bg-transparent text-[10px] font-mono uppercase focus:outline-none"
-                     />
-                 </form>
-              ) : (
-                 <button
-                     onClick={() => setEditingStatus(true)}
-                     className="w-full text-left text-[10px] font-mono uppercase truncate hover:bg-signal/10"
-                 >
-                     {statusText || 'Set status'} <span className="animate-blink ml-1">_</span>
-                 </button>
-              )}
-          </div>
+          <StatusPicker
+            currentStatus={currentUserStatus}
+            onStatusChange={onStatusChange}
+          />
       </div>
 
       {/* Buddy List Drawer */}
