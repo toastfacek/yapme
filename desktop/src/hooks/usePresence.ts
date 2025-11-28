@@ -12,6 +12,20 @@ export const usePresence = (userId: string | null) => {
   const lastActivityRef = useRef<number>(Date.now())
   const isManualStatusRef = useRef(false) // Track if user manually set status
 
+  // Update status in database
+  const updateStatusInDB = useCallback(async (newStatus: Status) => {
+    if (!userId) return
+
+    const { error } = await supabase
+      .from('users')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+
+    if (error) {
+      console.error('Failed to update status:', error)
+    }
+  }, [userId])
+
   // Load initial status from database
   useEffect(() => {
     if (!userId) {
@@ -27,27 +41,21 @@ export const usePresence = (userId: string | null) => {
         .single()
 
       if (!error && data) {
-        setStatus((data.status as Status) || 'offline')
-        isManualStatusRef.current = data.status === 'dnd' // DND is always manual
+        const dbStatus = (data.status as Status) || 'offline'
+        
+        // Auto-activate on app load (unless DND which is manual)
+        if (dbStatus === 'offline') {
+          setStatus('active')
+          await updateStatusInDB('active')
+        } else {
+          setStatus(dbStatus)
+        }
+        isManualStatusRef.current = dbStatus === 'dnd' // DND is always manual
       }
     }
 
     loadStatus()
-  }, [userId])
-
-  // Update status in database
-  const updateStatusInDB = useCallback(async (newStatus: Status) => {
-    if (!userId) return
-
-    const { error } = await supabase
-      .from('users')
-      .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq('id', userId)
-
-    if (error) {
-      console.error('Failed to update status:', error)
-    }
-  }, [userId])
+  }, [userId, updateStatusInDB])
 
   // Track user activity
   const resetIdleTimer = useCallback(() => {
@@ -141,22 +149,38 @@ export const usePresence = (userId: string | null) => {
     if (!userId) return
 
     const handleBeforeUnload = () => {
-      // Use sendBeacon for reliable status update on close
-      const statusUpdate = async () => {
-        await updateStatusInDB('offline')
+      // Use fetch with keepalive for reliable status update on close
+      // This is the ONLY place we set offline - cleanup runs on every re-render
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      
+      if (supabaseUrl && supabaseKey && userId) {
+        // Use fetch with keepalive flag - works even during page unload
+        fetch(`${supabaseUrl}/rest/v1/users?id=eq.${userId}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({ status: 'offline', updated_at: new Date().toISOString() }),
+          keepalive: true, // Ensures request completes even if page is closing
+        }).catch(() => {
+          // Silently fail - page might be closing
+        })
+      } else {
+        // Fallback to async update (may not complete before close)
+        updateStatusInDB('offline').catch(() => {})
       }
-      // Fire and forget - don't await
-      statusUpdate()
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload)
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
-      // Also update on cleanup
-      if (userId) {
-        updateStatusInDB('offline').catch(() => {})
-      }
+      // DON'T set offline here - this cleanup runs on every re-render
+      // Only beforeunload should set offline (true app close)
     }
   }, [userId, updateStatusInDB])
 

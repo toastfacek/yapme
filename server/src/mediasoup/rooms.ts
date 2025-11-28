@@ -24,6 +24,15 @@ export function addPeerToRoom(roomId: string, userId: string, socketId: string):
   createRoom(roomId)
   const room = rooms.get(roomId)!
 
+  // Don't replace existing peer - they might have transports already
+  if (room.has(userId)) {
+    // Update socket ID but keep transports
+    const existingPeer = room.get(userId)!
+    existingPeer.socketId = socketId
+    console.log(`👤 Updated peer ${userId} socket in room ${roomId}`)
+    return
+  }
+
   room.set(userId, {
     userId,
     socketId,

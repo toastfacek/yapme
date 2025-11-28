@@ -132,7 +132,7 @@ export const useWebRTC = ({ userId, selectedFriendId, onMessageCreated }: UseWeb
 
   // Listen for incoming audio from ANY friend (producer-available event)
   useEffect(() => {
-    if (!socket || !webrtcManager.current || !userId) return
+    if (!socket || !userId) return
 
     const handleProducerAvailable = async ({ 
       producerId, 
@@ -145,18 +145,30 @@ export const useWebRTC = ({ userId, selectedFriendId, onMessageCreated }: UseWeb
       senderUsername: string
       roomId: string
     }) => {
-      // Join the room if we're not already in it
+      console.log('🔊 Received producer-available:', { producerId, senderId, senderUsername, roomId: producerRoomId })
+      
+      // Check if WebRTC manager is ready
+      if (!webrtcManager.current) {
+        console.error('WebRTC manager not ready')
+        return
+      }
+
       const recvRoomId = producerRoomId
       
-      // Check if we need to join this room and create receive transport
-      // (We might already be in a different room with another friend)
+      // If we already have a recv transport, just consume directly
+      if (webrtcManager.current.hasRecvTransport()) {
+        console.log('🔊 Reusing existing recv transport')
+        consumeProducer(producerId, recvRoomId, senderId, senderUsername)
+        return
+      }
+
+      // Join the room if we're not already in it
       socket.emit('joinRoom', {
         roomId: recvRoomId,
         targetUserId: senderId,
       })
 
-      // Ensure we have a receive transport for this room
-      // Create receive transport on-demand if needed
+      // Create receive transport on-demand
       socket.emit(
         'createWebRtcTransport',
         { roomId: recvRoomId, direction: 'recv' },
@@ -166,7 +178,7 @@ export const useWebRTC = ({ userId, selectedFriendId, onMessageCreated }: UseWeb
             return
           }
 
-          // Create or reuse receive transport
+          // Create receive transport
           await webrtcManager.current!.createRecvTransport(
             response.params,
             async (dtlsParameters) => {
@@ -202,6 +214,7 @@ export const useWebRTC = ({ userId, selectedFriendId, onMessageCreated }: UseWeb
       senderId: string,
       senderUsername: string
     ) => {
+      console.log('🔊 Consuming producer:', { producerId, roomIdForConsume, senderId })
       setIsListening(true)
       setReceivingFrom({ userId: senderId, username: senderUsername })
 
@@ -275,10 +288,12 @@ export const useWebRTC = ({ userId, selectedFriendId, onMessageCreated }: UseWeb
       }
     }
 
+    console.log('🔊 Setting up producer-available listener')
     socket.on('producer-available', handleProducerAvailable)
     socket.on('producerClosed', handleProducerClosed)
 
     return () => {
+      console.log('🔊 Removing producer-available listener')
       socket.off('producer-available', handleProducerAvailable)
       socket.off('producerClosed', handleProducerClosed)
     }

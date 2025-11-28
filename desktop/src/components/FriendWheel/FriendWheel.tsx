@@ -48,6 +48,13 @@ export const FriendWheel: React.FC<FriendWheelProps> = ({
 
   const ITEM_HEIGHT = 48; // Compact height for wheel items
 
+  // Auto-select first friend on mount or when friends change
+  useEffect(() => {
+    if (friends.length > 0 && !selectedFriendId) {
+      onSelectFriend(friends[0].id);
+    }
+  }, [friends, selectedFriendId, onSelectFriend]);
+
   // Map friends to wheel format
   const getStatusLabel = (status: UserStatus): string => {
     switch (status) {

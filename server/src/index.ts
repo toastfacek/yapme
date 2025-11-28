@@ -3,6 +3,7 @@ import { createServer } from 'http'
 import { Server as SocketIOServer } from 'socket.io'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import { createClient } from '@supabase/supabase-js'
 import { createWorker, createRouter, getRouter } from './mediasoup/worker'
 import {
   createRoom,
@@ -17,6 +18,46 @@ import {
 } from './mediasoup/rooms'
 
 dotenv.config()
+
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseKey) {
+  console.warn('⚠️ Supabase not configured - status checks will be skipped')
+}
+
+const supabase = supabaseUrl && supabaseKey 
+  ? createClient(supabaseUrl, supabaseKey)
+  : null
+
+// Helper to check if user can receive audio based on status
+async function canReceiveAudio(userId: string): Promise<boolean> {
+  if (!supabase) return true // Skip check if Supabase not configured
+  
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('status')
+      .eq('id', userId)
+      .single()
+    
+    if (error || !data) {
+      console.warn(`⚠️ Could not check status for ${userId}:`, error?.message)
+      return true // Default to allowing if check fails
+    }
+    
+    // Only 'active' and 'away' users can receive audio
+    const canReceive = data.status === 'active' || data.status === 'away'
+    if (!canReceive) {
+      console.log(`🚫 User ${userId} is ${data.status} - not routing audio`)
+    }
+    return canReceive
+  } catch (err) {
+    console.error('Error checking user status:', err)
+    return true // Default to allowing on error
+  }
+}
 
 const app = express()
 const httpServer = createServer(app)
@@ -57,6 +98,254 @@ app.get('/public-ip', (req, res) => {
     ip,
     note: 'Use this IP for ANNOUNCED_IP environment variable in production'
   })
+})
+
+// Invite landing page
+app.get('/invite/:code', async (req, res) => {
+  const { code } = req.params
+  
+  if (!supabase) {
+    return res.status(500).send('Server configuration error')
+  }
+
+  try {
+    // Fetch invite data
+    const { data: invite, error: inviteError } = await supabase
+      .from('invites')
+      .select('*')
+      .eq('code', code)
+      .single()
+
+    if (inviteError || !invite) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Invite Not Found - YapMe</title>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: monospace; background: #f5f5dc; color: #111; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+            .container { text-align: center; padding: 2rem; }
+            h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+            p { opacity: 0.7; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>🎙️ Invite Not Found</h1>
+            <p>This invite link is invalid or has expired.</p>
+          </div>
+        </body>
+        </html>
+      `)
+    }
+
+    // Fetch sender username
+    const { data: sender, error: senderError } = await supabase
+      .from('users')
+      .select('username')
+      .eq('id', invite.sender_id)
+      .single()
+
+    const senderName = sender?.username || 'Someone'
+
+
+    // Check if expired
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+      return res.status(410).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Invite Expired - YapMe</title>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: monospace; background: #f5f5dc; color: #111; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+            .container { text-align: center; padding: 2rem; }
+            h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+            p { opacity: 0.7; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>🎙️ Invite Expired</h1>
+            <p>This invite link has expired.</p>
+          </div>
+        </body>
+        </html>
+      `)
+    }
+
+    const appUrl = process.env.APP_DOWNLOAD_URL || 'https://github.com/yourusername/yapme/releases'
+
+    // Serve landing page with audio player
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${senderName} wants to yap with you! - YapMe</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          * { box-sizing: border-box; }
+          body {
+            font-family: 'Courier New', monospace;
+            background: #f5f5dc;
+            color: #111;
+            margin: 0;
+            padding: 2rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+          }
+          .container {
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+          }
+          h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+          }
+          .subtitle {
+            font-size: 1rem;
+            opacity: 0.7;
+            margin-bottom: 2rem;
+          }
+          .audio-player {
+            background: white;
+            border: 3px solid #111;
+            border-radius: 8px;
+            padding: 2rem;
+            margin: 2rem 0;
+            box-shadow: 4px 4px 0 #111;
+          }
+          audio {
+            width: 100%;
+            margin: 1rem 0;
+          }
+          .cta-button {
+            display: inline-block;
+            background: #00ff41;
+            color: #111;
+            padding: 1rem 2rem;
+            border: 3px solid #111;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-top: 1rem;
+            box-shadow: 4px 4px 0 #111;
+            transition: transform 0.1s, box-shadow 0.1s;
+          }
+          .cta-button:hover {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 #111;
+          }
+          .cta-button:active {
+            transform: translate(4px, 4px);
+            box-shadow: 0 0 0 #111;
+          }
+          .footer {
+            margin-top: 3rem;
+            font-size: 0.8rem;
+            opacity: 0.5;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>🎙️ ${senderName} wants to yap with you!</h1>
+          <p class="subtitle">Listen to their message below</p>
+          
+          <div class="audio-player">
+            <audio controls autoplay>
+              <source src="${invite.audio_url}" type="audio/webm">
+              <source src="${invite.audio_url}" type="audio/ogg">
+              Your browser does not support the audio element.
+            </audio>
+          </div>
+
+          <a href="${appUrl}" class="cta-button">Get YapMe</a>
+          
+          <p class="footer">Download YapMe to reply and start yapping!</p>
+        </div>
+      </body>
+      </html>
+    `)
+  } catch (err) {
+    console.error('Error serving invite:', err)
+    res.status(500).send('Server error')
+  }
+})
+
+// Invite API endpoint (JSON for future native handling)
+app.get('/api/invite/:code', async (req, res) => {
+  const { code } = req.params
+  
+  if (!supabase) {
+    return res.status(500).json({ error: 'Server configuration error' })
+  }
+
+  try {
+    const { data: invite, error: inviteError } = await supabase
+      .from('invites')
+      .select('*')
+      .eq('code', code)
+      .single()
+
+    if (inviteError || !invite) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Invite Not Found - YapMe</title>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: monospace; background: #f5f5dc; color: #111; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+            .container { text-align: center; padding: 2rem; }
+            h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+            p { opacity: 0.7; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>🎙️ Invite Not Found</h1>
+            <p>This invite link is invalid or has expired.</p>
+          </div>
+        </body>
+        </html>
+      `)
+    }
+
+    // Fetch sender username
+    const { data: sender, error: senderError } = await supabase
+      .from('users')
+      .select('username')
+      .eq('id', invite.sender_id)
+      .single()
+
+
+    // Check if expired
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+      return res.status(410).json({ error: 'Invite expired' })
+    }
+
+    res.json({
+      code: invite.code,
+      senderUsername: sender?.username || null,
+      audioUrl: invite.audio_url,
+      createdAt: invite.created_at,
+    })
+  } catch (err) {
+    console.error('Error fetching invite:', err)
+    res.status(500).json({ error: 'Server error' })
+  }
 })
 
 // Socket.io connection handling
@@ -212,16 +501,21 @@ io.on('connection', (socket) => {
       // TODO: Cache this or get from database
       const senderUsername = userId // For now, use userId. Could fetch username from DB
 
-      // Notify target recipient (regardless of their selection)
-      // They will receive audio if they're active/away
+      // Check if target user can receive audio based on their status
       if (targetUserId) {
-        io.to(`user:${targetUserId}`).emit('producer-available', {
-          producerId: producer.id,
-          senderId: userId,
-          senderUsername,
-          roomId, // Include roomId so recipient can consume
-        })
-        console.log(`📢 Producer ${producer.id} from ${userId} routed to ${targetUserId}`)
+        const canReceive = await canReceiveAudio(targetUserId)
+        
+        if (canReceive) {
+          io.to(`user:${targetUserId}`).emit('producer-available', {
+            producerId: producer.id,
+            senderId: userId,
+            senderUsername,
+            roomId, // Include roomId so recipient can consume
+          })
+          console.log(`📢 Producer ${producer.id} from ${userId} routed to ${targetUserId}`)
+        } else {
+          console.log(`🚫 Producer ${producer.id} from ${userId} NOT routed - ${targetUserId} is DND/offline`)
+        }
       }
     } catch (error: any) {
       console.error('produce error:', error)

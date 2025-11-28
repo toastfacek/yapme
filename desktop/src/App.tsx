@@ -9,6 +9,7 @@ import { UsernameSetup } from './components/Auth/UsernameSetup'
 import { TitleBar } from './components/FriendWheel/TitleBar'
 import { FriendWheel } from './components/FriendWheel/FriendWheel'
 import { MessageHistory } from './components/FriendWheel/MessageHistory'
+import { InviteModal } from './components/InviteModal'
 
 function App() {
   const { user, session, loading: authLoading, signOut, refreshUser } = useAuth()
@@ -17,6 +18,7 @@ function App() {
   const { messages, createMessage, getMissedCount } = useMessages(user?.id || null)
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null)
   const [showMessageHistory, setShowMessageHistory] = useState(false)
+  const [showInviteModal, setShowInviteModal] = useState(false)
 
   console.log('🎯 App render - authLoading:', authLoading, 'user:', user?.username, 'session:', !!session)
 
@@ -79,6 +81,7 @@ function App() {
         onSignOut={signOut}
         missedCount={getMissedCount()}
         onShowHistory={() => setShowMessageHistory(true)}
+        onInvite={() => setShowInviteModal(true)}
       />
 
       <main className="flex-1 overflow-hidden relative mt-8">
@@ -115,6 +118,13 @@ function App() {
           onClose={() => setShowMessageHistory(false)}
         />
       )}
+
+      {/* Invite Modal */}
+      <InviteModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        userId={user?.id || null}
+      />
     </div>
   )
 }

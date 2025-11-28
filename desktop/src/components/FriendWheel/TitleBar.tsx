@@ -6,9 +6,10 @@ interface TitleBarProps {
   onSignOut: () => void;
   missedCount?: number;
   onShowHistory?: () => void;
+  onInvite?: () => void;
 }
 
-export const TitleBar: React.FC<TitleBarProps> = ({ currentUser, onSignOut, missedCount = 0, onShowHistory }) => {
+export const TitleBar: React.FC<TitleBarProps> = ({ currentUser, onSignOut, missedCount = 0, onShowHistory, onInvite }) => {
   return (
     <div className="titlebar-drag h-8 flex items-center px-2 bg-bone border-b-2 border-ink fixed top-0 w-full z-50">
       <div className="flex gap-1.5 no-drag group mr-4">
@@ -20,6 +21,15 @@ export const TitleBar: React.FC<TitleBarProps> = ({ currentUser, onSignOut, miss
          </span>
       </div>
       <div className="flex items-center gap-2">
+        {onInvite && (
+          <button
+            onClick={onInvite}
+            className="no-drag text-xs px-2 py-1 hover:bg-concrete transition-colors"
+            title="Invite friend"
+          >
+            ✉️
+          </button>
+        )}
         {onShowHistory && (
           <button
             onClick={onShowHistory}
